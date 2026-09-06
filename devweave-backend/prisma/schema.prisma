@@ -1,0 +1,90 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+enum Role {
+  ADMIN
+  DEVELOPER
+  VIEWER
+}
+
+enum RepositoryVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum RepositoryProvider {
+  GITHUB
+  GITLAB
+  BITBUCKET
+}
+
+model User {
+  id                String             @id @default(uuid())
+  name              String
+  email             String             @unique
+  passwordHash      String
+  role              Role               @default(DEVELOPER)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  githubIntegration GithubIntegration?
+  repositories      Repository[]
+  refreshSessions   RefreshSession[]
+
+  @@index([email])
+}
+
+model RefreshSession {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model GithubIntegration {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  githubUserId         String
+  githubUsername       String
+  githubAvatarUrl      String?
+  encryptedAccessToken String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Repository {
+  id             String               @id @default(uuid())
+  externalId     String?
+  name           String
+  fullName       String?
+  description    String?
+  owner          String?
+  visibility     RepositoryVisibility @default(PUBLIC)
+  language       String?
+  defaultBranch  String?              @default("main")
+  stars          Int                  @default(0)
+  forks          Int                  @default(0)
+  archived       Boolean              @default(false)
+  sourceProvider RepositoryProvider   @default(GITHUB)
+  userId         String?
+  user           User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([userId])
+  @@index([externalId])
+}
