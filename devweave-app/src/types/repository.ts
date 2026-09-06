@@ -95,3 +95,22 @@ export interface CommitFileResponse {
   };
 }
 
+export interface CreateRepositoryRequest {
+  name: string;
+  description?: string;
+  private: boolean;
+  initializeReadme: boolean;
+}
+
+export interface CreatedRepositoryData {
+  id: string;
+  name: string;
+  fullName: string;
+  description?: string;
+  private: boolean;
+  defaultBranch: string;
+  htmlUrl?: string;
+  cloneUrl?: string;
+}
+
+

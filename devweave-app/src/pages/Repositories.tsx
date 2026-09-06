@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Plus, RefreshCw } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Plus, RefreshCw, FolderPlus, CheckCircle2, ArrowRight, X } from 'lucide-react';
 import { githubService } from '../services/githubService';
-import type { Repository } from '../types/repository';
+import type { Repository, CreatedRepositoryData } from '../types/repository';
 import type { GitHubIntegrationStatus } from '../types/integration';
 import { RepositoryOverview } from '../components/repository/RepositoryOverview';
 import { RepositoryFilters } from '../components/repository/RepositoryFilters';
@@ -10,6 +10,7 @@ import type { StatusFilter, SortOption } from '../components/repository/Reposito
 import { RepositoryCard } from '../components/repository/RepositoryCard';
 import { RepositoryListRow } from '../components/repository/RepositoryListRow';
 import { ConnectRepositoryModal } from '../components/repository/ConnectRepositoryModal';
+import { CreateRepositoryModal } from '../components/repository/CreateRepositoryModal';
 import { DisconnectModal } from '../components/repository/DisconnectModal';
 import { GitHubConnectionCard } from '../components/repository/GitHubConnectionCard';
 import { RepositoryEmptyState } from '../components/repository/RepositoryEmptyState';
@@ -17,6 +18,7 @@ import { RepositorySkeleton } from '../components/repository/RepositorySkeleton'
 import { RepositoryErrorState } from '../components/repository/RepositoryErrorState';
 
 export const Repositories: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [integrationStatus, setIntegrationStatus] = useState<GitHubIntegrationStatus>({
@@ -33,8 +35,11 @@ export const Repositories: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDisconnectModalOpen, setIsDisconnectModalOpen] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [createdRepoNotice, setCreatedRepoNotice] = useState<CreatedRepositoryData | null>(null);
+
 
   const isMockMode = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
@@ -187,13 +192,58 @@ export const Repositories: React.FC = () => {
           </button>
           <button
             onClick={() => setIsConnectModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all shrink-0"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] text-white text-xs sm:text-sm font-semibold transition-all shrink-0"
           >
             <Plus className="h-4 w-4" />
             <span>Connect Repository</span>
           </button>
+          <button
+            onClick={() => {
+              if (integrationStatus.status === 'not_connected') {
+                setIsConnectModalOpen(true);
+              } else {
+                setIsCreateModalOpen(true);
+              }
+            }}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all shrink-0"
+          >
+            <FolderPlus className="h-4 w-4" />
+            <span>+ Create Repository</span>
+          </button>
         </div>
       </div>
+
+      {/* Created Repository Notice Banner */}
+      {createdRepoNotice && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 animate-in fade-in duration-200">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+            <div>
+              <p className="font-bold text-white text-xs sm:text-sm">
+                Repository <span className="font-mono text-emerald-300">{createdRepoNotice.name}</span> created successfully!
+              </p>
+              <p className="text-xs text-white/60">
+                The repository is initialized on GitHub and synchronized with DevWeave.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate(`/repositories/${createdRepoNotice.id}`)}
+              className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow transition-all inline-flex items-center gap-1.5"
+            >
+              <span>Open Repository Workspace</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setCreatedRepoNotice(null)}
+              className="p-1.5 rounded-lg text-white/40 hover:text-white transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* GitHub Integration Status Banner */}
       <GitHubConnectionCard
@@ -292,6 +342,15 @@ export const Repositories: React.FC = () => {
         onConnectGitHubSuccess={handleConnectGitHubSuccess}
       />
 
+      <CreateRepositoryModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={async (newRepo) => {
+          setCreatedRepoNotice(newRepo);
+          await loadData();
+        }}
+      />
+
       <DisconnectModal
         isOpen={isDisconnectModalOpen}
         onClose={() => setIsDisconnectModalOpen(false)}
@@ -301,3 +360,4 @@ export const Repositories: React.FC = () => {
     </div>
   );
 };
+

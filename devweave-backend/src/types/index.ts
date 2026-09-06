@@ -114,3 +114,19 @@ export interface CommitFileResponse {
   };
 }
 
+export interface CreateRepositoryData {
+  id: string;
+  name: string;
+  fullName: string;
+  description: string | null;
+  private: boolean;
+  defaultBranch: string;
+  htmlUrl?: string;
+  cloneUrl?: string;
+}
+
+export interface CreateRepositoryResponse {
+  repository: CreateRepositoryData;
+}
+
+

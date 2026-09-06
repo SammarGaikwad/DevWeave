@@ -17,7 +17,9 @@ import {
   CommitFileRequest,
   CommitFileResponse,
   GithubContentItem,
+  CreateRepositoryResponse,
 } from '../types/index.js';
+import { CreateRepositoryInput } from '../schemas/repositorySchema.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 interface OAuthStateRecord {
@@ -504,4 +506,104 @@ export async function updateRepositoryFile(
     },
   };
 }
+
+export async function createRepository(
+  userId: string,
+  data: CreateRepositoryInput
+): Promise<CreateRepositoryResponse> {
+  const accessToken = await getDecryptedAccessTokenForUser(userId);
+
+  // Call GitHub REST API to create repository
+  let rawRepo;
+  try {
+    rawRepo = await githubClient.createUserRepository(accessToken, {
+      name: data.name,
+      description: data.description,
+      private: data.private,
+      initializeReadme: data.initializeReadme,
+    });
+  } catch (error: unknown) {
+    const appErr = error as AppError;
+    if (appErr.statusCode === 422 || appErr.message?.includes('already exists')) {
+      throw new AppError('A repository with this name already exists.', 409);
+    }
+    throw error;
+  }
+
+  const visibility = rawRepo.private ? RepositoryVisibility.PRIVATE : RepositoryVisibility.PUBLIC;
+  const now = new Date();
+
+  let dbRepo: Repository = {
+    id: `github-${rawRepo.id}`,
+    externalId: String(rawRepo.id),
+    name: rawRepo.name,
+    fullName: rawRepo.full_name,
+    description: rawRepo.description,
+    owner: rawRepo.owner.login,
+    visibility,
+    language: rawRepo.language,
+    defaultBranch: rawRepo.default_branch || 'main',
+    stars: rawRepo.stargazers_count || 0,
+    forks: rawRepo.forks_count || 0,
+    archived: rawRepo.archived || false,
+    sourceProvider: RepositoryProvider.GITHUB,
+    userId,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  // Synchronize created repository into PostgreSQL database
+  try {
+    dbRepo = await prisma.repository.upsert({
+      where: { id: `github-${rawRepo.id}` },
+      update: {
+        externalId: String(rawRepo.id),
+        name: rawRepo.name,
+        fullName: rawRepo.full_name,
+        description: rawRepo.description,
+        owner: rawRepo.owner.login,
+        visibility,
+        language: rawRepo.language,
+        defaultBranch: rawRepo.default_branch || 'main',
+        stars: rawRepo.stargazers_count || 0,
+        forks: rawRepo.forks_count || 0,
+        archived: rawRepo.archived || false,
+        sourceProvider: RepositoryProvider.GITHUB,
+        userId,
+      },
+      create: {
+        id: `github-${rawRepo.id}`,
+        externalId: String(rawRepo.id),
+        name: rawRepo.name,
+        fullName: rawRepo.full_name,
+        description: rawRepo.description,
+        owner: rawRepo.owner.login,
+        visibility,
+        language: rawRepo.language,
+        defaultBranch: rawRepo.default_branch || 'main',
+        stars: rawRepo.stargazers_count || 0,
+        forks: rawRepo.forks_count || 0,
+        archived: rawRepo.archived || false,
+        sourceProvider: RepositoryProvider.GITHUB,
+        userId,
+      },
+    });
+  } catch (dbError) {
+    console.warn('⚠️ Notice: Repository created on GitHub, but PostgreSQL insertion failed or DB is offline:', dbError);
+  }
+
+  return {
+    repository: {
+      id: dbRepo.id,
+      name: dbRepo.name,
+      fullName: dbRepo.fullName || `${rawRepo.owner.login}/${rawRepo.name}`,
+      description: dbRepo.description,
+      private: rawRepo.private,
+      defaultBranch: dbRepo.defaultBranch || 'main',
+      htmlUrl: `https://github.com/${rawRepo.owner.login}/${rawRepo.name}`,
+      cloneUrl: `https://github.com/${rawRepo.owner.login}/${rawRepo.name}.git`,
+    },
+  };
+}
+
 

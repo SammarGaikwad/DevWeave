@@ -9,6 +9,8 @@ import type {
   GithubFile,
   CommitFileRequest,
   CommitFileResponse,
+  CreateRepositoryRequest,
+  CreatedRepositoryData,
 } from '../types/repository';
 import type { GitHubIntegrationStatus } from '../types/integration';
 
@@ -170,5 +172,19 @@ export const githubService = {
     );
     return res.data;
   },
+
+  createRepository: async (
+    data: CreateRepositoryRequest
+  ): Promise<CreatedRepositoryData> => {
+    if (USE_MOCK_DATA) {
+      return mockGithubService.createRepository(data);
+    }
+    const res = await apiClient.post<BackendApiResponse<{ repository: CreatedRepositoryData }>>(
+      '/v1/integrations/github/repositories',
+      data
+    );
+    return res.data.repository;
+  },
 };
+
 

@@ -11,6 +11,7 @@ import {
   getGithubRepositoryContents,
   getGithubRepositoryFile,
   updateGithubRepositoryFile,
+  createGithubRepository,
   disconnectGithub,
 } from '../controllers/githubController.js';
 import { authenticate } from '../middleware/authenticate.js';
@@ -26,6 +27,7 @@ router.get('/status', authenticate, getGithubStatus);
 
 // Repository endpoints
 router.get('/repositories', authenticate, getGithubRepositories);
+router.post('/repositories', authenticate, createGithubRepository);
 router.get('/repositories/:id', authenticate, getGithubRepositoryById);
 router.get('/repositories/:id/branches', authenticate, getGithubRepositoryBranches);
 router.get('/repositories/:id/commits', authenticate, getGithubRepositoryCommits);
@@ -40,4 +42,5 @@ router.get('/repositories/:id/contents', authenticate, getGithubRepositoryConten
 router.post('/disconnect', authenticate, disconnectGithub);
 
 export default router;
+
 

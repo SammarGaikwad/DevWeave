@@ -8,6 +8,8 @@ import type {
   GithubFile,
   CommitFileRequest,
   CommitFileResponse,
+  CreateRepositoryRequest,
+  CreatedRepositoryData,
 } from '../../types/repository';
 import type { GitHubIntegrationStatus } from '../../types/integration';
 
@@ -175,5 +177,40 @@ export const mockGithubService = {
       },
     };
   },
+
+  createRepository: async (
+    data: CreateRepositoryRequest
+  ): Promise<CreatedRepositoryData> => {
+    const id = `github-mock-${Date.now()}`;
+    const newRepo: Repository = {
+      id,
+      name: data.name,
+      fullName: `developer/${data.name}`,
+      description: data.description || 'Repository created via DevWeave',
+      owner: 'developer',
+      visibility: data.private ? 'private' : 'public',
+      language: 'TypeScript',
+      defaultBranch: 'main',
+      stars: 0,
+      forks: 0,
+      updatedAt: 'Just now',
+      status: 'Active',
+      archived: false,
+      source: 'GitHub',
+    };
+    mockRepositories.unshift(newRepo);
+
+    return {
+      id: newRepo.id,
+      name: newRepo.name,
+      fullName: newRepo.fullName!,
+      description: newRepo.description,
+      private: data.private,
+      defaultBranch: 'main',
+      htmlUrl: `https://github.com/developer/${data.name}`,
+      cloneUrl: `https://github.com/developer/${data.name}.git`,
+    };
+  },
 };
+
 

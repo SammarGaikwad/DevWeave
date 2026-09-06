@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../middleware/authenticate.js';
 import * as githubService from '../services/githubService.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { createRepositorySchema } from '../schemas/repositorySchema.js';
 
 export async function initiateConnect(
   req: AuthenticatedRequest,
@@ -267,4 +268,28 @@ export async function updateGithubRepositoryFile(
     next(error);
   }
 }
+
+export async function createGithubRepository(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!req.user) {
+      throw new AppError('Authentication required', 401);
+    }
+
+    const validatedData = createRepositorySchema.parse(req.body);
+    const result = await githubService.createRepository(req.user.id, validatedData);
+
+    res.status(201).json({
+      success: true,
+      data: result,
+      message: 'Repository created successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 

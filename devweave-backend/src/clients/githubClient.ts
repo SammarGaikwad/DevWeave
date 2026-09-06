@@ -300,3 +300,34 @@ export async function updateRepositoryFileContent(
   });
 }
 
+export interface RawGithubCreateRepoPayload {
+  name: string;
+  description?: string;
+  private?: boolean;
+  initializeReadme?: boolean;
+}
+
+export async function createUserRepository(
+  accessToken: string,
+  payload: RawGithubCreateRepoPayload
+): Promise<RawGithubRepo> {
+  const body = {
+    name: payload.name,
+    description: payload.description || undefined,
+    private: Boolean(payload.private),
+    auto_init: payload.initializeReadme !== false,
+    has_issues: true,
+    has_projects: true,
+    has_wiki: true,
+  };
+
+  return githubFetch<RawGithubRepo>('/user/repos', accessToken, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+
