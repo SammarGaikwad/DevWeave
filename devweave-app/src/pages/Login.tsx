@@ -39,8 +39,8 @@ export const Login: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col justify-center items-center px-4 relative overflow-hidden font-sans selection:bg-blue-500/30 selection:text-blue-200">
       {/* Background Decorative Glows */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/15 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-[300px] h-[300px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-blue-600/15 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-10 right-10 w-[200px] sm:w-[300px] h-[200px] sm:h-[300px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Brand Header */}
       <div className="mb-8 text-center relative z-10 flex flex-col items-center">
@@ -56,7 +56,7 @@ export const Login: React.FC = () => {
       </div>
 
       {/* Card Container */}
-      <div className="w-full max-w-md glass-panel bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl relative z-10">
+      <div className="w-full max-w-md glass-panel bg-[#0a0a0a]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-5 sm:p-8 shadow-2xl relative z-10">
         <h1 className="text-xl font-bold text-white mb-1">Welcome back</h1>
         <p className="text-xs text-white/50 mb-6">Sign in to your DevWeave workspace session</p>
 

@@ -83,14 +83,14 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-20 h-[68px] glass-panel border-b border-white/[0.08] px-4 md:px-6 flex items-center justify-between">
+      <header className="sticky top-0 z-20 h-[68px] glass-panel border-b border-white/[0.08] px-3 sm:px-4 md:px-6 flex items-center justify-between gap-2">
         {/* Left Section: Mobile Menu + Breadcrumbs */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <IconButton
             icon={<Menu className="h-5 w-5" />}
             label="Open menu"
             onClick={onOpenMobileMenu}
-            className="md:hidden"
+            className="md:hidden shrink-0"
           />
           <Breadcrumbs />
         </div>
@@ -131,7 +131,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               onClick={() => togglePopover('notifications')}
             />
             {activePopover === 'notifications' && (
-              <div className="absolute right-0 mt-2 w-80 rounded-xl glass-panel bg-[#0a0a0a]/95 border border-white/10 shadow-2xl p-4 z-40 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-2rem)] rounded-xl glass-panel bg-[#0a0a0a]/95 border border-white/10 shadow-2xl p-4 z-40 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="flex items-center justify-between pb-3 border-b border-white/10">
                   <h4 className="text-sm font-semibold text-white">Notifications</h4>
                   <span className="text-[10px] uppercase font-bold tracking-wider text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
@@ -179,7 +179,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               onClick={() => togglePopover('help')}
             />
             {activePopover === 'help' && (
-              <div className="absolute right-0 mt-2 w-56 rounded-xl glass-panel bg-[#0a0a0a]/95 border border-white/10 shadow-2xl p-2 z-40 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-xl glass-panel bg-[#0a0a0a]/95 border border-white/10 shadow-2xl p-2 z-40 animate-in fade-in slide-in-from-top-2 duration-150">
                 <button
                   onClick={() => {
                     setActivePopover(null);
@@ -230,7 +230,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
             </button>
 
             {activePopover === 'profile' && (
-              <div className="absolute right-0 mt-2 w-56 rounded-xl glass-panel bg-[#0a0a0a]/95 border border-white/10 shadow-2xl p-2 z-40 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-xl glass-panel bg-[#0a0a0a]/95 border border-white/10 shadow-2xl p-2 z-40 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-3 py-2 border-b border-white/10 mb-1">
                   <div className="flex items-center justify-between mb-0.5">
                     <p className="text-xs font-semibold text-white truncate">{user?.name || 'Developer'}</p>

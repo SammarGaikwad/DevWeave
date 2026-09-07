@@ -38,7 +38,7 @@ export const DashboardQuickActions: React.FC = () => {
       <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50">
         Quick Actions
       </h3>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         {actions.map((action) => {
           const Icon = action.icon;
           return (

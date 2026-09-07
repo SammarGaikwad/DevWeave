@@ -363,7 +363,7 @@ export const RepositoryWorkspace: React.FC<RepositoryWorkspaceProps> = ({
         {/* Toolbar & Branch Dropdown */}
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Workspace Actions Toolbar */}
-          <div className="flex items-center gap-2 border-r border-white/10 pr-3">
+          <div className="flex flex-wrap items-center gap-2 sm:border-r sm:border-white/10 sm:pr-3">
             <button
               onClick={() => confirmWithUnsavedCheck(() => setShowNewFileModal(true))}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 font-semibold text-xs transition-all cursor-pointer shadow-sm hover:scale-[1.02]"

@@ -35,7 +35,7 @@ export const MobileSidebar: React.FC<MobileSidebarProps> = ({
       />
 
       {/* Drawer panel */}
-      <div className="relative flex w-4/5 max-w-xs flex-col bg-[#0a0a0a] border-r border-white/[0.08] shadow-2xl z-10">
+      <div className="relative flex w-4/5 max-w-xs h-full flex-col bg-[#0a0a0a] border-r border-white/[0.08] shadow-2xl z-10">
         {/* Branding & Close button */}
         <div className="flex h-[68px] items-center justify-between px-4 border-b border-white/[0.08]">
           <div className="flex items-center gap-3">

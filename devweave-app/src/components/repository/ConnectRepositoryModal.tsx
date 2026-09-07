@@ -52,7 +52,7 @@ export const ConnectRepositoryModal: React.FC<ConnectRepositoryModalProps> = ({
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
       <div
-        className="relative w-full max-w-lg glass-panel bg-[#0a0a0a]/95 rounded-2xl border border-white/15 shadow-2xl p-6 z-10 overflow-hidden space-y-4"
+        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto glass-panel bg-[#0a0a0a]/95 rounded-2xl border border-white/15 shadow-2xl p-4 sm:p-6 z-10 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}

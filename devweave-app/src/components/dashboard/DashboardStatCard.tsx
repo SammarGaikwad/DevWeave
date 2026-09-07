@@ -53,7 +53,7 @@ export const DashboardStatCard: React.FC<DashboardStatCardProps> = ({
       </div>
 
       <div className="flex items-center justify-between pt-3 border-t border-white/[0.06] text-xs">
-        <span className="text-white/50 truncate max-w-[180px]">{description}</span>
+        <span className="text-white/50 truncate flex-1 mr-2">{description}</span>
         {onClick && (
           <ArrowUpRight className="h-3.5 w-3.5 text-white/30 group-hover:text-blue-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
         )}

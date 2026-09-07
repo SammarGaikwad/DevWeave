@@ -64,12 +64,12 @@ export const RepositoryFilters: React.FC<RepositoryFiltersProps> = ({
         {/* Dropdowns & View Toggle */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Language Dropdown */}
-          <div className="relative flex items-center">
+          <div className="relative flex items-center flex-1 sm:flex-initial">
             <Filter className="absolute left-2.5 h-3.5 w-3.5 text-white/40 pointer-events-none" />
             <select
               value={languageFilter}
               onChange={(e) => onLanguageFilterChange(e.target.value)}
-              className="pl-8 pr-7 py-2 rounded-xl bg-[#0a0a0a] border border-white/[0.08] text-white/80 text-xs font-medium focus:outline-none focus:border-blue-500/40 cursor-pointer transition-all"
+              className="w-full sm:w-auto pl-8 pr-7 py-2 rounded-xl bg-[#0a0a0a] border border-white/[0.08] text-white/80 text-xs font-medium focus:outline-none focus:border-blue-500/40 cursor-pointer transition-all"
             >
               <option value="All">All Languages</option>
               {availableLanguages.map((lang) => (
@@ -84,7 +84,7 @@ export const RepositoryFilters: React.FC<RepositoryFiltersProps> = ({
           <select
             value={sortOption}
             onChange={(e) => onSortOptionChange(e.target.value as SortOption)}
-            className="px-3 py-2 rounded-xl bg-[#0a0a0a] border border-white/[0.08] text-white/80 text-xs font-medium focus:outline-none focus:border-blue-500/40 cursor-pointer transition-all"
+            className="flex-1 sm:flex-initial w-full sm:w-auto px-3 py-2 rounded-xl bg-[#0a0a0a] border border-white/[0.08] text-white/80 text-xs font-medium focus:outline-none focus:border-blue-500/40 cursor-pointer transition-all"
           >
             {sortOptions.map((opt) => (
               <option key={opt} value={opt}>
@@ -94,7 +94,7 @@ export const RepositoryFilters: React.FC<RepositoryFiltersProps> = ({
           </select>
 
           {/* View Mode Toggle Button Group */}
-          <div className="inline-flex items-center p-1 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+          <div className="inline-flex items-center p-1 rounded-xl bg-white/[0.03] border border-white/[0.08] shrink-0">
             <button
               onClick={() => onViewModeChange('list')}
               aria-label="List view"

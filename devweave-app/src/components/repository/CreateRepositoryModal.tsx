@@ -106,7 +106,7 @@ export const CreateRepositoryModal: React.FC<CreateRepositoryModalProps> = ({
       />
 
       <div
-        className="relative w-full max-w-lg glass-panel bg-[#0a0a0a]/95 rounded-2xl border border-white/15 shadow-2xl p-6 z-10 overflow-hidden space-y-5"
+        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto glass-panel bg-[#0a0a0a]/95 rounded-2xl border border-white/15 shadow-2xl p-4 sm:p-6 z-10 space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
@@ -189,7 +189,7 @@ export const CreateRepositoryModal: React.FC<CreateRepositoryModalProps> = ({
           {/* Visibility Options */}
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-white/80">Visibility</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setIsPrivate(false)}

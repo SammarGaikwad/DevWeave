@@ -75,7 +75,7 @@ export const NewFileModal: React.FC<NewFileModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <GlassCard className="max-w-lg w-full p-6 space-y-5 border-blue-500/30 relative">
+      <GlassCard className="max-w-lg w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 space-y-5 border-blue-500/30 relative">
         <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">

@@ -105,7 +105,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   return (
     <div className="flex flex-col h-full bg-slate-950/70 border border-white/[0.08] rounded-xl overflow-hidden shadow-xl">
       {/* Editor Header Bar */}
-      <div className="px-4 py-2.5 bg-white/[0.03] border-b border-white/[0.08] flex items-center justify-between gap-3 shrink-0">
+      <div className="px-3 sm:px-4 py-2.5 bg-white/[0.03] border-b border-white/[0.08] flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
           <FileCode className="h-4 w-4 text-blue-400 shrink-0" />
           <span className="text-xs font-mono font-semibold text-white truncate">

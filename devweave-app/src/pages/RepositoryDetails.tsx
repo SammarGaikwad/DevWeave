@@ -222,7 +222,7 @@ export const RepositoryDetails: React.FC = () => {
 
       {/* Summary Metrics Row */}
       <div className="space-y-2">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <GlassCard className="p-4 border-white/[0.08] flex items-center justify-between">
             <div>
               <p className="text-[11px] font-semibold text-white/50 uppercase tracking-wider">
