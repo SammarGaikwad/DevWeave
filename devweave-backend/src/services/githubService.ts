@@ -18,8 +18,9 @@ import {
   CommitFileResponse,
   GithubContentItem,
   CreateRepositoryResponse,
+  BulkUploadFilesResponse,
 } from '../types/index.js';
-import { CreateRepositoryInput } from '../schemas/repositorySchema.js';
+import { CreateRepositoryInput, BulkUploadFilesInput } from '../schemas/repositorySchema.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 interface OAuthStateRecord {
@@ -603,6 +604,180 @@ export async function createRepository(
       htmlUrl: `https://github.com/${rawRepo.owner.login}/${rawRepo.name}`,
       cloneUrl: `https://github.com/${rawRepo.owner.login}/${rawRepo.name}.git`,
     },
+  };
+}
+
+export async function bulkUploadFiles(
+  userId: string,
+  repoId: string,
+  data: BulkUploadFilesInput
+): Promise<BulkUploadFilesResponse> {
+  const repo = await getRepositoryById(userId, repoId);
+  const accessToken = await getDecryptedAccessTokenForUser(userId);
+  const owner = repo.owner || repo.fullName?.split('/')[0] || '';
+  const branchName = data.branch || repo.defaultBranch || 'main';
+
+  // 1. Create Blobs for each file
+  const treeItems: githubClient.RawGitTreeItem[] = [];
+  for (const file of data.files) {
+    const blob = await githubClient.createGitBlob(
+      accessToken,
+      owner,
+      repo.name,
+      file.content,
+      file.encoding as 'utf-8' | 'base64'
+    );
+    treeItems.push({
+      path: file.path,
+      mode: '100644',
+      type: 'blob',
+      sha: blob.sha,
+    });
+  }
+
+  // 2. Fetch current ref to check if branch exists
+  let latestCommitSha: string | null = null;
+  let baseTreeSha: string | undefined = undefined;
+
+  try {
+    const gitRef = await githubClient.fetchGitRef(accessToken, owner, repo.name, branchName);
+    latestCommitSha = gitRef.object.sha;
+    const commit = await githubClient.fetchGitCommit(accessToken, owner, repo.name, latestCommitSha);
+    baseTreeSha = commit.tree.sha;
+  } catch {
+    latestCommitSha = null;
+    baseTreeSha = undefined;
+  }
+
+  // 3. Create Tree
+  const newTree = await githubClient.createGitTree(
+    accessToken,
+    owner,
+    repo.name,
+    baseTreeSha || '',
+    treeItems
+  );
+
+  // 4. Create Commit
+  const parents = latestCommitSha ? [latestCommitSha] : [];
+  const newCommit = await githubClient.createGitCommit(
+    accessToken,
+    owner,
+    repo.name,
+    data.message,
+    newTree.sha,
+    parents
+  );
+
+  // 5. Update or Create Ref
+  if (latestCommitSha) {
+    await githubClient.updateGitRef(accessToken, owner, repo.name, branchName, newCommit.sha);
+  } else {
+    try {
+      await githubClient.updateGitRef(accessToken, owner, repo.name, branchName, newCommit.sha);
+    } catch {
+      await githubClient.createGitRef(accessToken, owner, repo.name, branchName, newCommit.sha);
+    }
+  }
+
+  return {
+    success: true,
+    branch: branchName,
+    commitSha: newCommit.sha,
+    committedFilesCount: data.files.length,
+    files: data.files.map((f) => ({ path: f.path })),
+  };
+}
+
+export interface BufferUploadFileItem {
+  path: string;
+  buffer: Buffer;
+}
+
+export async function bulkUploadFilesFromBuffers(
+  userId: string,
+  repoId: string,
+  data: {
+    branch?: string;
+    message: string;
+    files: BufferUploadFileItem[];
+  }
+): Promise<BulkUploadFilesResponse> {
+  const repo = await getRepositoryById(userId, repoId);
+  const accessToken = await getDecryptedAccessTokenForUser(userId);
+  const owner = repo.owner || repo.fullName?.split('/')[0] || '';
+  const branchName = data.branch || repo.defaultBranch || 'main';
+
+  // 1. Create Blobs for each file using Base64 encoding from buffer
+  const treeItems: githubClient.RawGitTreeItem[] = [];
+  for (const file of data.files) {
+    const base64Content = file.buffer.toString('base64');
+    const blob = await githubClient.createGitBlob(
+      accessToken,
+      owner,
+      repo.name,
+      base64Content,
+      'base64'
+    );
+    treeItems.push({
+      path: file.path,
+      mode: '100644',
+      type: 'blob',
+      sha: blob.sha,
+    });
+  }
+
+  // 2. Fetch current ref to check if branch exists
+  let latestCommitSha: string | null = null;
+  let baseTreeSha: string | undefined = undefined;
+
+  try {
+    const gitRef = await githubClient.fetchGitRef(accessToken, owner, repo.name, branchName);
+    latestCommitSha = gitRef.object.sha;
+    const commit = await githubClient.fetchGitCommit(accessToken, owner, repo.name, latestCommitSha);
+    baseTreeSha = commit.tree.sha;
+  } catch {
+    latestCommitSha = null;
+    baseTreeSha = undefined;
+  }
+
+  // 3. Create Tree
+  const newTree = await githubClient.createGitTree(
+    accessToken,
+    owner,
+    repo.name,
+    baseTreeSha || '',
+    treeItems
+  );
+
+  // 4. Create Commit
+  const parents = latestCommitSha ? [latestCommitSha] : [];
+  const newCommit = await githubClient.createGitCommit(
+    accessToken,
+    owner,
+    repo.name,
+    data.message,
+    newTree.sha,
+    parents
+  );
+
+  // 5. Update or Create Ref
+  if (latestCommitSha) {
+    await githubClient.updateGitRef(accessToken, owner, repo.name, branchName, newCommit.sha);
+  } else {
+    try {
+      await githubClient.updateGitRef(accessToken, owner, repo.name, branchName, newCommit.sha);
+    } catch {
+      await githubClient.createGitRef(accessToken, owner, repo.name, branchName, newCommit.sha);
+    }
+  }
+
+  return {
+    success: true,
+    branch: branchName,
+    commitSha: newCommit.sha,
+    committedFilesCount: data.files.length,
+    files: data.files.map((f) => ({ path: f.path })),
   };
 }
 

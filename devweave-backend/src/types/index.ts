@@ -129,4 +129,12 @@ export interface CreateRepositoryResponse {
   repository: CreateRepositoryData;
 }
 
+export interface BulkUploadFilesResponse {
+  success: boolean;
+  branch: string;
+  commitSha: string;
+  committedFilesCount: number;
+  files: Array<{ path: string }>;
+}
+
 

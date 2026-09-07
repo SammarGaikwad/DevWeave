@@ -10,6 +10,8 @@ import type {
   CommitFileResponse,
   CreateRepositoryRequest,
   CreatedRepositoryData,
+  BulkUploadFilesRequest,
+  BulkUploadFilesResponseData,
 } from '../../types/repository';
 import type { GitHubIntegrationStatus } from '../../types/integration';
 
@@ -209,6 +211,52 @@ export const mockGithubService = {
       defaultBranch: 'main',
       htmlUrl: `https://github.com/developer/${data.name}`,
       cloneUrl: `https://github.com/developer/${data.name}.git`,
+    };
+  },
+
+  uploadFiles: async (
+    _id: string,
+    data: FormData | BulkUploadFilesRequest
+  ): Promise<BulkUploadFilesResponseData> => {
+    let branch = 'main';
+    let fileCount = 0;
+    const paths: Array<{ path: string }> = [];
+
+    if (data instanceof FormData) {
+      branch = (data.get('branch') as string) || 'main';
+      const files = data.getAll('files') as File[];
+      const rawPaths = data.getAll('paths') as string[];
+      fileCount = files.length;
+
+      for (let i = 0; i < files.length; i++) {
+        const path = rawPaths[i] || files[i].name;
+        mockFilesDatabase[path] = `// Mock content for ${path}`;
+        paths.push({ path });
+      }
+    } else {
+      branch = data.branch || 'main';
+      fileCount = data.files.length;
+      for (const f of data.files) {
+        let decodedContent = f.content;
+        if (f.encoding === 'base64') {
+          try {
+            decodedContent = atob(f.content);
+          } catch {
+            decodedContent = f.content;
+          }
+        }
+        mockFilesDatabase[f.path] = decodedContent;
+        paths.push({ path: f.path });
+      }
+    }
+
+    const newSha = `sha-bulk-${Date.now()}`;
+    return {
+      success: true,
+      branch,
+      commitSha: newSha,
+      committedFilesCount: fileCount,
+      files: paths,
     };
   },
 };

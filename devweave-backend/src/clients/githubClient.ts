@@ -330,4 +330,163 @@ export async function createUserRepository(
   });
 }
 
+// Git Data API interfaces & methods for single-commit bulk uploads
+
+export interface RawGitRef {
+  ref: string;
+  node_id: string;
+  url: string;
+  object: {
+    sha: string;
+    type: string;
+    url: string;
+  };
+}
+
+export interface RawGitCommit {
+  sha: string;
+  node_id: string;
+  url: string;
+  tree: {
+    sha: string;
+    url: string;
+  };
+  message: string;
+}
+
+export interface RawGitBlob {
+  sha: string;
+  url: string;
+}
+
+export interface RawGitTreeItem {
+  path: string;
+  mode: string; // '100644' for file
+  type: 'blob' | 'tree';
+  sha: string;
+}
+
+export interface RawGitTree {
+  sha: string;
+  url: string;
+  tree: RawGitTreeItem[];
+}
+
+export async function fetchGitRef(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  branch: string
+): Promise<RawGitRef> {
+  const cleanBranch = encodeURIComponent(branch);
+  return githubFetch<RawGitRef>(`/repos/${owner}/${repo}/git/ref/heads/${cleanBranch}`, accessToken);
+}
+
+export async function fetchGitCommit(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  commitSha: string
+): Promise<RawGitCommit> {
+  return githubFetch<RawGitCommit>(`/repos/${owner}/${repo}/git/commits/${commitSha}`, accessToken);
+}
+
+export async function createGitBlob(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  content: string,
+  encoding: 'utf-8' | 'base64' = 'utf-8'
+): Promise<RawGitBlob> {
+  return githubFetch<RawGitBlob>(`/repos/${owner}/${repo}/git/blobs`, accessToken, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ content, encoding }),
+  });
+}
+
+export async function createGitTree(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  baseTreeSha: string,
+  treeItems: RawGitTreeItem[]
+): Promise<RawGitTree> {
+  return githubFetch<RawGitTree>(`/repos/${owner}/${repo}/git/trees`, accessToken, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      base_tree: baseTreeSha,
+      tree: treeItems,
+    }),
+  });
+}
+
+export async function createGitCommit(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  message: string,
+  treeSha: string,
+  parents: string[]
+): Promise<RawGitCommit> {
+  return githubFetch<RawGitCommit>(`/repos/${owner}/${repo}/git/commits`, accessToken, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      message,
+      tree: treeSha,
+      parents,
+    }),
+  });
+}
+
+export async function updateGitRef(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  branch: string,
+  commitSha: string,
+  force = false
+): Promise<RawGitRef> {
+  const cleanBranch = encodeURIComponent(branch);
+  return githubFetch<RawGitRef>(`/repos/${owner}/${repo}/git/refs/heads/${cleanBranch}`, accessToken, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      sha: commitSha,
+      force,
+    }),
+  });
+}
+
+export async function createGitRef(
+  accessToken: string,
+  owner: string,
+  repo: string,
+  branch: string,
+  commitSha: string
+): Promise<RawGitRef> {
+  const ref = branch.startsWith('refs/') ? branch : `refs/heads/${branch}`;
+  return githubFetch<RawGitRef>(`/repos/${owner}/${repo}/git/refs`, accessToken, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ref,
+      sha: commitSha,
+    }),
+  });
+}
+
+
 

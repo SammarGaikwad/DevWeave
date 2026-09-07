@@ -113,4 +113,24 @@ export interface CreatedRepositoryData {
   cloneUrl?: string;
 }
 
+export interface UploadFileItemPayload {
+  path: string;
+  content: string;
+  encoding?: 'utf-8' | 'base64';
+}
+
+export interface BulkUploadFilesRequest {
+  branch?: string;
+  message: string;
+  files: UploadFileItemPayload[];
+}
+
+export interface BulkUploadFilesResponseData {
+  success: boolean;
+  branch: string;
+  commitSha: string;
+  committedFilesCount: number;
+  files: Array<{ path: string }>;
+}
+
 

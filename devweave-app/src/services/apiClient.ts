@@ -58,10 +58,16 @@ async function makeRequest<T>(
   isRetry = false
 ): Promise<T> {
   const token = getMemoryAccessToken();
+  const isFormData = options.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string>),
   };
+
+  if (isFormData) {
+    delete headers['Content-Type'];
+    delete headers['content-type'];
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -147,6 +153,14 @@ export const apiClient = {
     return makeRequest<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
+      ...options,
+    });
+  },
+
+  postForm<T>(endpoint: string, formData: FormData, options: RequestInit = {}): Promise<T> {
+    return makeRequest<T>(endpoint, {
+      method: 'POST',
+      body: formData,
       ...options,
     });
   },

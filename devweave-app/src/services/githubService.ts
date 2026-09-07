@@ -11,6 +11,8 @@ import type {
   CommitFileResponse,
   CreateRepositoryRequest,
   CreatedRepositoryData,
+  BulkUploadFilesRequest,
+  BulkUploadFilesResponseData,
 } from '../types/repository';
 import type { GitHubIntegrationStatus } from '../types/integration';
 
@@ -184,6 +186,27 @@ export const githubService = {
       data
     );
     return res.data.repository;
+  },
+
+  uploadFiles: async (
+    id: string,
+    data: FormData | BulkUploadFilesRequest
+  ): Promise<BulkUploadFilesResponseData> => {
+    if (USE_MOCK_DATA) {
+      return mockGithubService.uploadFiles(id, data);
+    }
+    if (data instanceof FormData) {
+      const res = await apiClient.postForm<BackendApiResponse<BulkUploadFilesResponseData>>(
+        `/v1/integrations/github/repositories/${id}/files`,
+        data
+      );
+      return res.data;
+    }
+    const res = await apiClient.post<BackendApiResponse<BulkUploadFilesResponseData>>(
+      `/v1/integrations/github/repositories/${id}/files`,
+      data
+    );
+    return res.data;
   },
 };
 
