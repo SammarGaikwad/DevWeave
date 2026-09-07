@@ -1,4 +1,4 @@
-import { Repository } from '@prisma/client';
+import { Repository } from '../generated/prisma/client.js';
 import { prisma, isDbAvailable, markDbOffline } from '../config/database.js';
 
 const memoryRepositories = new Map<string, Repository>();

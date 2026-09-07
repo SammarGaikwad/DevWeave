@@ -1,4 +1,4 @@
-import type { Role, RepositoryVisibility, RepositoryProvider } from '@prisma/client';
+import type { Role, RepositoryVisibility, RepositoryProvider } from '../generated/prisma/client.js';
 
 export interface ApiResponse<T = unknown> {
   success: boolean;

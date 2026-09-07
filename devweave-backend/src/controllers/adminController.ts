@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/authenticate.js';
 import { prisma } from '../config/database.js';
 import { sanitizeUser } from '../services/userService.js';
-import { User } from '@prisma/client';
+import { User } from '../generated/prisma/client.js';
 
 export async function getUsers(
   _req: AuthenticatedRequest,

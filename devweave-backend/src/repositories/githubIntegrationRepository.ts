@@ -1,4 +1,4 @@
-import { GithubIntegration } from '@prisma/client';
+import { GithubIntegration } from '../generated/prisma/client.js';
 import { prisma, isDbAvailable, markDbOffline } from '../config/database.js';
 
 const memoryIntegrations = new Map<string, GithubIntegration>();

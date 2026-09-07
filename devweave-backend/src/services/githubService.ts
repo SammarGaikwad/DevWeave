@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { Repository, RepositoryProvider, RepositoryVisibility } from '@prisma/client';
+import { Repository, RepositoryProvider, RepositoryVisibility } from '../generated/prisma/client.js';
 import { env } from '../config/env.js';
 import { prisma } from '../config/database.js';
 import { encryptToken, decryptToken } from '../utils/encryption.js';

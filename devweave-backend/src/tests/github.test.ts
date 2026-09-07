@@ -3,7 +3,7 @@ import request from 'supertest';
 import { app } from '../app.js';
 import { verifyState, buildAuthorizationUrl } from '../services/githubService.js';
 import { generateAccessToken } from '../utils/jwt.js';
-import { Role } from '@prisma/client';
+import { Role } from '../generated/prisma/client.js';
 
 describe('GitHub Integration API & Security Tests', () => {
   const dummyUserId = '00000000-0000-0000-0000-000000000001';

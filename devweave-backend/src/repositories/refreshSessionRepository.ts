@@ -1,4 +1,4 @@
-import { RefreshSession } from '@prisma/client';
+import { RefreshSession } from '../generated/prisma/client.js';
 import { prisma, isDbAvailable, markDbOffline } from '../config/database.js';
 import crypto from 'crypto';
 

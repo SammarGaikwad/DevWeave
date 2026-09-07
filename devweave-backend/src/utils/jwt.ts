@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { Role } from '@prisma/client';
+import { Role } from '../generated/prisma/client.js';
 import { env } from '../config/env.js';
 
 export interface AccessTokenPayload {

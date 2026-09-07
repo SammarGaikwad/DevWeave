@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { Role } from '@prisma/client';
+import { Role } from '../generated/prisma/client.js';
 import { AuthenticatedRequest } from './authenticate.js';
 import { AppError } from './errorHandler.js';
 
