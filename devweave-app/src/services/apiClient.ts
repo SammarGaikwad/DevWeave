@@ -1,4 +1,4 @@
-import { getMemoryAccessToken, setMemoryAccessToken } from '../context/AuthContext';
+import { getMemoryAccessToken, setMemoryAccessToken } from './tokenStore';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
@@ -12,11 +12,8 @@ let activeRefreshPromise: Promise<string | null> | null = null;
 
 export async function sharedRefreshToken(): Promise<string | null> {
   if (activeRefreshPromise) {
-    console.log('[AUTH] refresh already in progress');
     return activeRefreshPromise;
   }
-
-  console.log('[AUTH] refresh started');
 
   activeRefreshPromise = (async () => {
     try {
@@ -31,14 +28,11 @@ export async function sharedRefreshToken(): Promise<string | null> {
         if (data.success && data.data?.accessToken) {
           const newToken = data.data.accessToken;
           setMemoryAccessToken(newToken);
-          console.log('[AUTH] refresh succeeded');
-          console.log('[AUTH] access token restored');
           return newToken;
         }
       }
-      console.log('[AUTH] refresh failed');
     } catch {
-      console.log('[AUTH] refresh failed');
+      // Refresh network error
     }
 
     setMemoryAccessToken(null);
@@ -57,11 +51,11 @@ async function makeRequest<T>(
   options: RequestInit = {},
   isRetry = false
 ): Promise<T> {
-  const token = getMemoryAccessToken();
+  const passedHeaders = (options.headers as Record<string, string>) || {};
   const isFormData = options.body instanceof FormData;
   const headers: Record<string, string> = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-    ...(options.headers as Record<string, string>),
+    ...passedHeaders,
   };
 
   if (isFormData) {
@@ -69,8 +63,12 @@ async function makeRequest<T>(
     delete headers['content-type'];
   }
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  const existingAuthHeader = headers['Authorization'] || headers['authorization'];
+  if (!existingAuthHeader) {
+    const token = getMemoryAccessToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
   }
 
   try {
@@ -92,6 +90,7 @@ async function makeRequest<T>(
           ...options.headers,
           Authorization: `Bearer ${newToken}`,
         };
+
         return makeRequest<T>(endpoint, options, true);
       }
     }

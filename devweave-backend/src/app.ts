@@ -10,6 +10,9 @@ import { errorHandler } from './middleware/errorHandler.js';
 
 export const app = express();
 
+// Trust reverse proxy (e.g., Render, Nginx, Cloudflare) for rate limiting & IP detection
+app.set('trust proxy', 1);
+
 // Disable ETag generation to prevent HTTP 304 Not Modified on API routes
 app.set('etag', false);
 
@@ -25,10 +28,19 @@ app.use('/api', (_req, res, next) => {
 // Security Headers
 app.use(helmet());
 
+// Clean CORS allowed origins (handles with or without trailing slashes)
+const allowedOrigins = Array.from(
+  new Set([
+    env.FRONTEND_URL,
+    env.FRONTEND_URL.replace(/\/$/, ''),
+    `${env.FRONTEND_URL.replace(/\/$/, '')}/`,
+  ])
+);
+
 // CORS configuration
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { apiClient, sharedRefreshToken } from '../services/apiClient';
+import {
+  getMemoryAccessToken,
+  setMemoryAccessToken,
+  subscribeMemoryAccessToken,
+} from '../services/tokenStore';
+
+export { getMemoryAccessToken, setMemoryAccessToken };
 
 export type UserRole = 'ADMIN' | 'DEVELOPER' | 'VIEWER';
 
@@ -25,19 +32,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-let memoryAccessToken: string | null = null;
-
-export function getMemoryAccessToken(): string | null {
-  return memoryAccessToken;
-}
-
-export function setMemoryAccessToken(token: string | null): void {
-  memoryAccessToken = token;
-}
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(getMemoryAccessToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +42,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAccessToken(token);
     setMemoryAccessToken(token);
   };
+
+  useEffect(() => {
+    const unsubscribe = subscribeMemoryAccessToken((newToken) => {
+      setAccessToken(newToken);
+    });
+    return unsubscribe;
+  }, []);
 
   const fetchCurrentUser = useCallback(async (token: string) => {
     try {
