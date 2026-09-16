@@ -5,7 +5,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo 'Checking out DevWeave source code...'
+               echo 'Checking out DevWeave source code for CI...'
                 checkout scm
             }
         }
