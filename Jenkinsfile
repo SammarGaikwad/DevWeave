@@ -40,7 +40,7 @@ pipeline {
 
     post {
         success {
-            echo 'DevWeave CI pipeline completed successfully!'
+            echo 'DevWeave CI pipeline completed successfully! 🚀'
         }
 
         failure {
