@@ -14,6 +14,7 @@ import {
 import { GlassCard } from '../components/ui/GlassCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { apiClient } from '../services/apiClient';
+import { useAuth } from '../context/AuthContext';
 
 type PipelineStatus =
   | 'SUCCESS'
@@ -155,6 +156,15 @@ function getStageIcon(status: StageStatus) {
 }
 
 export const Pipelines: React.FC = () => {
+  /*
+   * Wait for AuthContext to restore the user's session before
+   * requesting the protected Jenkins pipeline endpoints.
+   */
+  const {
+    isLoading: authLoading,
+    accessToken,
+  } = useAuth();
+
   const [pipeline, setPipeline] =
     useState<PipelineStatusResponse | null>(null);
 
@@ -183,7 +193,7 @@ export const Pipelines: React.FC = () => {
       } catch (err: any) {
         setError(
           err?.message ||
-          'Failed to load Jenkins pipeline.'
+            'Failed to load Jenkins pipeline.'
         );
       } finally {
         setLoading(false);
@@ -193,9 +203,24 @@ export const Pipelines: React.FC = () => {
     []
   );
 
+  /*
+   * Do not call the protected pipeline endpoint until
+   * AuthContext has finished restoring the session and
+   * an access token is available.
+   */
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!accessToken) {
+      setLoading(false);
+      setError('Authentication required. Please log in again.');
+      return;
+    }
+
     loadPipeline();
-  }, [loadPipeline]);
+  }, [authLoading, accessToken, loadPipeline]);
 
   const handleTrigger = async () => {
     try {
@@ -210,12 +235,26 @@ export const Pipelines: React.FC = () => {
     } catch (err: any) {
       setError(
         err?.message ||
-        'Failed to trigger Jenkins pipeline.'
+          'Failed to trigger Jenkins pipeline.'
       );
     } finally {
       setTriggering(false);
     }
   };
+
+  /*
+   * Authentication is still being restored.
+   */
+  if (authLoading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="flex items-center gap-3 text-white/60">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Checking authentication...
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -267,8 +306,9 @@ export const Pipelines: React.FC = () => {
             className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white/70 hover:text-white hover:bg-white/[0.08] text-sm transition disabled:opacity-50"
           >
             <RefreshCw
-              className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''
-                }`}
+              className={`h-4 w-4 ${
+                refreshing ? 'animate-spin' : ''
+              }`}
             />
 
             Refresh
@@ -358,7 +398,7 @@ export const Pipelines: React.FC = () => {
                     <p className="text-xs text-white/40 mt-1">
                       {
                         statusLabels[
-                        pipeline.latestBuild.status
+                          pipeline.latestBuild.status
                         ]
                       }
                     </p>
@@ -380,8 +420,8 @@ export const Pipelines: React.FC = () => {
               <p className="text-xl font-semibold text-white mt-3">
                 {pipeline.latestBuild
                   ? formatDuration(
-                    pipeline.latestBuild.duration
-                  )
+                      pipeline.latestBuild.duration
+                    )
                   : '—'}
               </p>
 
@@ -414,7 +454,7 @@ export const Pipelines: React.FC = () => {
                       )}
                       customLabel={
                         statusLabels[
-                        pipeline.latestBuild.status
+                          pipeline.latestBuild.status
                         ]
                       }
                     />
@@ -475,8 +515,8 @@ export const Pipelines: React.FC = () => {
                         <p className="text-xs text-white/35 mt-2">
                           {stage.durationMillis
                             ? formatDuration(
-                              stage.durationMillis
-                            )
+                                stage.durationMillis
+                              )
                             : stage.status === 'PENDING'
                               ? 'Pending'
                               : '—'}
