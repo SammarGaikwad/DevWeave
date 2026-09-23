@@ -137,4 +137,32 @@ export interface BulkUploadFilesResponse {
   files: Array<{ path: string }>;
 }
 
+export interface JenkinsTriggerBuildResponse {
+  message: string;
+  queueItemUrl?: string;
+  queueItemId?: number | null;
+  buildUrl: string;
+}
+
+export interface JenkinsPipelineStage {
+  id: string;
+  name: string;
+  status: 'SUCCESS' | 'IN_PROGRESS' | 'FAILED' | 'PAUSED' | 'ABORTED' | 'PENDING';
+  durationMillis: number;
+}
+
+export interface JenkinsBuildDetailsResponse {
+  id: number;
+  number: number;
+  status: 'SUCCESS' | 'FAILURE' | 'BUILDING' | 'NOT_BUILT' | 'ABORTED' | 'UNSTABLE' | 'UNKNOWN';
+  result: string | null;
+  duration: number;
+  timestamp: number;
+  url: string;
+  commitMessage?: string;
+  author?: string;
+  stages?: JenkinsPipelineStage[];
+}
+
+
 

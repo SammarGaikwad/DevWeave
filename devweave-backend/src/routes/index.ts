@@ -5,6 +5,8 @@ import userRoutes from './userRoutes.js';
 import adminRoutes from './adminRoutes.js';
 import repositoryRoutes from './repositoryRoutes.js';
 import githubRoutes from './githubRoutes.js';
+import pipelineRoutes from './pipelineRoutes.js';
+import jenkinsRoutes from './jenkinsRoutes.js';
 
 const router = Router();
 
@@ -17,5 +19,8 @@ router.use('/api/v1/users', userRoutes);
 router.use('/api/v1/admin', adminRoutes);
 router.use('/api/v1/repositories', repositoryRoutes);
 router.use('/api/v1/integrations/github', githubRoutes);
+router.use('/api/v1/pipelines', pipelineRoutes);
+router.use('/api/v1/jenkins', jenkinsRoutes);
 
 export default router;
+

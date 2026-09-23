@@ -20,6 +20,10 @@ const envSchema = z.object({
   INTEGRATION_ENCRYPTION_KEY: z
     .string()
     .default('devweave_integration_encryption_key_32bytes_long_secret'),
+  JENKINS_URL: z.string().default('http://98.70.58.149:8080'),
+  JENKINS_USERNAME: z.string().optional().default(''),
+  JENKINS_API_TOKEN: z.string().optional().default(''),
+  JENKINS_JOB_NAME: z.string().default('DevWeave-CI-CD'),
 });
 
 const _env = envSchema.safeParse(process.env);
