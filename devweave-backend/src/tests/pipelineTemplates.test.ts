@@ -5,6 +5,7 @@ import { generateAccessToken } from '../utils/jwt.js';
 import { Role } from '../generated/prisma/client.js';
 import * as repoRepo from '../repositories/repositoryRepository.js';
 import * as pipelineRepo from '../repositories/pipelineRepository.js';
+import { generateJenkinsfile, getPipelineTemplate } from '../services/pipelineTemplateRegistry.js';
 
 describe('Predefined Pipeline Templates & CI/CD System Tests', () => {
   const dummyUserId = '00000000-0000-0000-0000-000000000001';
@@ -381,4 +382,67 @@ describe('Predefined Pipeline Templates & CI/CD System Tests', () => {
       expect(res.body.data.logs).toContain('[REDACTED]');
     });
   });
+
+  // 4. Node.js Backend CI Directory & Reproducible Installation Tests
+  describe('Node.js Backend CI Pipeline Directory & Reproducible Installation', () => {
+    it('should configure rootDir default as devweave-backend in template metadata', () => {
+      const template = getPipelineTemplate('nodejs-backend-ci');
+      const rootDirField = template.configFields.find((f) => f.key === 'rootDir');
+      expect(rootDirField).toBeDefined();
+      expect(rootDirField?.defaultValue).toBe('devweave-backend');
+    });
+
+    it('should generate pipeline that runs npm ci, test, and build inside devweave-backend by default', () => {
+      const script = generateJenkinsfile({
+        templateId: 'nodejs-backend-ci',
+        repositoryCloneUrl: 'https://github.com/SammarGaikwad/DevWeave.git',
+        branch: 'main',
+      });
+
+      // Must enclose install, lint, test, and build in dir('devweave-backend')
+      expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm ci'\n                }");
+      expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm run lint --if-present'\n                }");
+      expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm test --if-present'\n                }");
+      expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm run build'\n                }");
+
+      // Preserves checkout, node validation, and post-build cleanup
+      expect(script).toContain("stage('Checkout Repository')");
+      expect(script).toContain("stage('Validate Node.js Version')");
+      expect(script).toContain("sh 'node -v && npm -v'");
+      expect(script).toContain("stage('Publish Build Result')");
+      expect(script).toContain("cleanWs cleanWhenNotBuilt: false");
+    });
+
+    it('should target devweave-backend even when config.rootDir is explicitly "."', () => {
+      const script = generateJenkinsfile({
+        templateId: 'nodejs-backend-ci',
+        repositoryCloneUrl: 'https://github.com/SammarGaikwad/DevWeave.git',
+        branch: 'main',
+        config: { rootDir: '.' },
+      });
+
+      expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm ci'\n                }");
+      expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm test --if-present'\n                }");
+      expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm run build'\n                }");
+    });
+
+    it('should respect custom subdirectory when config.rootDir is explicitly provided', () => {
+      const script = generateJenkinsfile({
+        templateId: 'nodejs-backend-ci',
+        repositoryCloneUrl: 'https://github.com/SammarGaikwad/DevWeave.git',
+        branch: 'main',
+        config: {
+          rootDir: 'custom-backend',
+          installCommand: 'npm ci --prefer-offline',
+          testCommand: 'npm run test:ci',
+          buildCommand: 'npm run compile',
+        },
+      });
+
+      expect(script).toContain("dir('custom-backend') {\n                    sh 'npm ci --prefer-offline'\n                }");
+      expect(script).toContain("dir('custom-backend') {\n                    sh 'npm run test:ci'\n                }");
+      expect(script).toContain("dir('custom-backend') {\n                    sh 'npm run compile'\n                }");
+    });
+  });
 });
+

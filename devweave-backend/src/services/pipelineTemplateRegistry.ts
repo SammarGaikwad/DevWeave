@@ -48,7 +48,7 @@ export const PREDEFINED_TEMPLATES: Record<string, PipelineTemplate> = {
       { id: 'publish-result', name: 'Publish Build Result', order: 7, description: 'Verifies compilation artifacts and records status.' },
     ],
     configFields: [
-      { key: 'rootDir', label: 'Root Directory', type: 'string', defaultValue: '.', required: false, description: 'Directory where package.json is located (relative to repository root).' },
+      { key: 'rootDir', label: 'Root Directory', type: 'string', defaultValue: 'devweave-backend', required: false, description: 'Directory where backend package.json and package-lock.json are located (relative to repository root).' },
       { key: 'packageManager', label: 'Package Manager', type: 'select', defaultValue: 'npm', required: true, description: 'Package manager to use.', options: ['npm', 'yarn', 'pnpm'] },
       { key: 'installCommand', label: 'Install Command', type: 'string', defaultValue: 'npm ci', required: false, description: 'Command to install project dependencies.' },
       { key: 'lintCommand', label: 'Lint Command', type: 'string', defaultValue: 'npm run lint --if-present', required: false, description: 'Command to run linting.' },
@@ -185,14 +185,16 @@ export function generateJenkinsfile(params: {
 
   switch (templateId) {
     case 'nodejs-backend-ci': {
-      const rootDir = sanitizeInput(config.rootDir, '.');
+      const rootDir = (!config.rootDir || config.rootDir === '.')
+        ? 'devweave-backend'
+        : sanitizeInput(config.rootDir, 'devweave-backend');
       const installCmd = escapeGroovyString(sanitizeInput(config.installCommand, 'npm ci', true));
       const lintCmd = escapeGroovyString(sanitizeInput(config.lintCommand, 'npm run lint --if-present', true));
       const testCmd = escapeGroovyString(sanitizeInput(config.testCommand, 'npm test --if-present', true));
       const buildCmd = escapeGroovyString(sanitizeInput(config.buildCommand, 'npm run build', true));
 
-      const inDir = rootDir !== '.' ? `dir('${escapeGroovyString(rootDir)}') {` : '';
-      const closeDir = rootDir !== '.' ? `}` : '';
+      const inDir = `dir('${escapeGroovyString(rootDir)}') {`;
+      const closeDir = `}`;
 
       return `pipeline {
     agent any
