@@ -201,6 +201,8 @@ export type UserWhereInput = {
   githubIntegration?: Prisma.XOR<Prisma.GithubIntegrationNullableScalarRelationFilter, Prisma.GithubIntegrationWhereInput> | null
   repositories?: Prisma.RepositoryListRelationFilter
   refreshSessions?: Prisma.RefreshSessionListRelationFilter
+  pipelines?: Prisma.RepositoryPipelineListRelationFilter
+  pipelineRuns?: Prisma.PipelineRunListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -214,6 +216,8 @@ export type UserOrderByWithRelationInput = {
   githubIntegration?: Prisma.GithubIntegrationOrderByWithRelationInput
   repositories?: Prisma.RepositoryOrderByRelationAggregateInput
   refreshSessions?: Prisma.RefreshSessionOrderByRelationAggregateInput
+  pipelines?: Prisma.RepositoryPipelineOrderByRelationAggregateInput
+  pipelineRuns?: Prisma.PipelineRunOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -230,6 +234,8 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   githubIntegration?: Prisma.XOR<Prisma.GithubIntegrationNullableScalarRelationFilter, Prisma.GithubIntegrationWhereInput> | null
   repositories?: Prisma.RepositoryListRelationFilter
   refreshSessions?: Prisma.RefreshSessionListRelationFilter
+  pipelines?: Prisma.RepositoryPipelineListRelationFilter
+  pipelineRuns?: Prisma.PipelineRunListRelationFilter
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -269,6 +275,8 @@ export type UserCreateInput = {
   githubIntegration?: Prisma.GithubIntegrationCreateNestedOneWithoutUserInput
   repositories?: Prisma.RepositoryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
+  pipelines?: Prisma.RepositoryPipelineCreateNestedManyWithoutUserInput
+  pipelineRuns?: Prisma.PipelineRunCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -282,6 +290,8 @@ export type UserUncheckedCreateInput = {
   githubIntegration?: Prisma.GithubIntegrationUncheckedCreateNestedOneWithoutUserInput
   repositories?: Prisma.RepositoryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
+  pipelines?: Prisma.RepositoryPipelineUncheckedCreateNestedManyWithoutUserInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -295,6 +305,8 @@ export type UserUpdateInput = {
   githubIntegration?: Prisma.GithubIntegrationUpdateOneWithoutUserNestedInput
   repositories?: Prisma.RepositoryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
+  pipelines?: Prisma.RepositoryPipelineUpdateManyWithoutUserNestedInput
+  pipelineRuns?: Prisma.PipelineRunUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -308,6 +320,8 @@ export type UserUncheckedUpdateInput = {
   githubIntegration?: Prisma.GithubIntegrationUncheckedUpdateOneWithoutUserNestedInput
   repositories?: Prisma.RepositoryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
+  pipelines?: Prisma.RepositoryPipelineUncheckedUpdateManyWithoutUserNestedInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -436,6 +450,34 @@ export type UserUpdateOneWithoutRepositoriesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutRepositoriesInput, Prisma.UserUpdateWithoutRepositoriesInput>, Prisma.UserUncheckedUpdateWithoutRepositoriesInput>
 }
 
+export type UserCreateNestedOneWithoutPipelinesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPipelinesInput, Prisma.UserUncheckedCreateWithoutPipelinesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPipelinesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutPipelinesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPipelinesInput, Prisma.UserUncheckedCreateWithoutPipelinesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPipelinesInput
+  upsert?: Prisma.UserUpsertWithoutPipelinesInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutPipelinesInput, Prisma.UserUpdateWithoutPipelinesInput>, Prisma.UserUncheckedUpdateWithoutPipelinesInput>
+}
+
+export type UserCreateNestedOneWithoutPipelineRunsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPipelineRunsInput, Prisma.UserUncheckedCreateWithoutPipelineRunsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPipelineRunsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutPipelineRunsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPipelineRunsInput, Prisma.UserUncheckedCreateWithoutPipelineRunsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPipelineRunsInput
+  upsert?: Prisma.UserUpsertWithoutPipelineRunsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutPipelineRunsInput, Prisma.UserUpdateWithoutPipelineRunsInput>, Prisma.UserUncheckedUpdateWithoutPipelineRunsInput>
+}
+
 export type UserCreateWithoutRefreshSessionsInput = {
   id?: string
   name: string
@@ -446,6 +488,8 @@ export type UserCreateWithoutRefreshSessionsInput = {
   updatedAt?: Date | string
   githubIntegration?: Prisma.GithubIntegrationCreateNestedOneWithoutUserInput
   repositories?: Prisma.RepositoryCreateNestedManyWithoutUserInput
+  pipelines?: Prisma.RepositoryPipelineCreateNestedManyWithoutUserInput
+  pipelineRuns?: Prisma.PipelineRunCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutRefreshSessionsInput = {
@@ -458,6 +502,8 @@ export type UserUncheckedCreateWithoutRefreshSessionsInput = {
   updatedAt?: Date | string
   githubIntegration?: Prisma.GithubIntegrationUncheckedCreateNestedOneWithoutUserInput
   repositories?: Prisma.RepositoryUncheckedCreateNestedManyWithoutUserInput
+  pipelines?: Prisma.RepositoryPipelineUncheckedCreateNestedManyWithoutUserInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutRefreshSessionsInput = {
@@ -486,6 +532,8 @@ export type UserUpdateWithoutRefreshSessionsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubIntegration?: Prisma.GithubIntegrationUpdateOneWithoutUserNestedInput
   repositories?: Prisma.RepositoryUpdateManyWithoutUserNestedInput
+  pipelines?: Prisma.RepositoryPipelineUpdateManyWithoutUserNestedInput
+  pipelineRuns?: Prisma.PipelineRunUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRefreshSessionsInput = {
@@ -498,6 +546,8 @@ export type UserUncheckedUpdateWithoutRefreshSessionsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubIntegration?: Prisma.GithubIntegrationUncheckedUpdateOneWithoutUserNestedInput
   repositories?: Prisma.RepositoryUncheckedUpdateManyWithoutUserNestedInput
+  pipelines?: Prisma.RepositoryPipelineUncheckedUpdateManyWithoutUserNestedInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutGithubIntegrationInput = {
@@ -510,6 +560,8 @@ export type UserCreateWithoutGithubIntegrationInput = {
   updatedAt?: Date | string
   repositories?: Prisma.RepositoryCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
+  pipelines?: Prisma.RepositoryPipelineCreateNestedManyWithoutUserInput
+  pipelineRuns?: Prisma.PipelineRunCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutGithubIntegrationInput = {
@@ -522,6 +574,8 @@ export type UserUncheckedCreateWithoutGithubIntegrationInput = {
   updatedAt?: Date | string
   repositories?: Prisma.RepositoryUncheckedCreateNestedManyWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
+  pipelines?: Prisma.RepositoryPipelineUncheckedCreateNestedManyWithoutUserInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutGithubIntegrationInput = {
@@ -550,6 +604,8 @@ export type UserUpdateWithoutGithubIntegrationInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   repositories?: Prisma.RepositoryUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
+  pipelines?: Prisma.RepositoryPipelineUpdateManyWithoutUserNestedInput
+  pipelineRuns?: Prisma.PipelineRunUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutGithubIntegrationInput = {
@@ -562,6 +618,8 @@ export type UserUncheckedUpdateWithoutGithubIntegrationInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   repositories?: Prisma.RepositoryUncheckedUpdateManyWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
+  pipelines?: Prisma.RepositoryPipelineUncheckedUpdateManyWithoutUserNestedInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutRepositoriesInput = {
@@ -574,6 +632,8 @@ export type UserCreateWithoutRepositoriesInput = {
   updatedAt?: Date | string
   githubIntegration?: Prisma.GithubIntegrationCreateNestedOneWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
+  pipelines?: Prisma.RepositoryPipelineCreateNestedManyWithoutUserInput
+  pipelineRuns?: Prisma.PipelineRunCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutRepositoriesInput = {
@@ -586,6 +646,8 @@ export type UserUncheckedCreateWithoutRepositoriesInput = {
   updatedAt?: Date | string
   githubIntegration?: Prisma.GithubIntegrationUncheckedCreateNestedOneWithoutUserInput
   refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
+  pipelines?: Prisma.RepositoryPipelineUncheckedCreateNestedManyWithoutUserInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutRepositoriesInput = {
@@ -614,6 +676,8 @@ export type UserUpdateWithoutRepositoriesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubIntegration?: Prisma.GithubIntegrationUpdateOneWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
+  pipelines?: Prisma.RepositoryPipelineUpdateManyWithoutUserNestedInput
+  pipelineRuns?: Prisma.PipelineRunUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRepositoriesInput = {
@@ -626,6 +690,152 @@ export type UserUncheckedUpdateWithoutRepositoriesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   githubIntegration?: Prisma.GithubIntegrationUncheckedUpdateOneWithoutUserNestedInput
   refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
+  pipelines?: Prisma.RepositoryPipelineUncheckedUpdateManyWithoutUserNestedInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutPipelinesInput = {
+  id?: string
+  name: string
+  email: string
+  passwordHash: string
+  role?: $Enums.Role
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  githubIntegration?: Prisma.GithubIntegrationCreateNestedOneWithoutUserInput
+  repositories?: Prisma.RepositoryCreateNestedManyWithoutUserInput
+  refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
+  pipelineRuns?: Prisma.PipelineRunCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutPipelinesInput = {
+  id?: string
+  name: string
+  email: string
+  passwordHash: string
+  role?: $Enums.Role
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  githubIntegration?: Prisma.GithubIntegrationUncheckedCreateNestedOneWithoutUserInput
+  repositories?: Prisma.RepositoryUncheckedCreateNestedManyWithoutUserInput
+  refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutPipelinesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutPipelinesInput, Prisma.UserUncheckedCreateWithoutPipelinesInput>
+}
+
+export type UserUpsertWithoutPipelinesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutPipelinesInput, Prisma.UserUncheckedUpdateWithoutPipelinesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutPipelinesInput, Prisma.UserUncheckedCreateWithoutPipelinesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutPipelinesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutPipelinesInput, Prisma.UserUncheckedUpdateWithoutPipelinesInput>
+}
+
+export type UserUpdateWithoutPipelinesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubIntegration?: Prisma.GithubIntegrationUpdateOneWithoutUserNestedInput
+  repositories?: Prisma.RepositoryUpdateManyWithoutUserNestedInput
+  refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
+  pipelineRuns?: Prisma.PipelineRunUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutPipelinesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubIntegration?: Prisma.GithubIntegrationUncheckedUpdateOneWithoutUserNestedInput
+  repositories?: Prisma.RepositoryUncheckedUpdateManyWithoutUserNestedInput
+  refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutPipelineRunsInput = {
+  id?: string
+  name: string
+  email: string
+  passwordHash: string
+  role?: $Enums.Role
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  githubIntegration?: Prisma.GithubIntegrationCreateNestedOneWithoutUserInput
+  repositories?: Prisma.RepositoryCreateNestedManyWithoutUserInput
+  refreshSessions?: Prisma.RefreshSessionCreateNestedManyWithoutUserInput
+  pipelines?: Prisma.RepositoryPipelineCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutPipelineRunsInput = {
+  id?: string
+  name: string
+  email: string
+  passwordHash: string
+  role?: $Enums.Role
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  githubIntegration?: Prisma.GithubIntegrationUncheckedCreateNestedOneWithoutUserInput
+  repositories?: Prisma.RepositoryUncheckedCreateNestedManyWithoutUserInput
+  refreshSessions?: Prisma.RefreshSessionUncheckedCreateNestedManyWithoutUserInput
+  pipelines?: Prisma.RepositoryPipelineUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutPipelineRunsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutPipelineRunsInput, Prisma.UserUncheckedCreateWithoutPipelineRunsInput>
+}
+
+export type UserUpsertWithoutPipelineRunsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutPipelineRunsInput, Prisma.UserUncheckedUpdateWithoutPipelineRunsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutPipelineRunsInput, Prisma.UserUncheckedCreateWithoutPipelineRunsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutPipelineRunsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutPipelineRunsInput, Prisma.UserUncheckedUpdateWithoutPipelineRunsInput>
+}
+
+export type UserUpdateWithoutPipelineRunsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubIntegration?: Prisma.GithubIntegrationUpdateOneWithoutUserNestedInput
+  repositories?: Prisma.RepositoryUpdateManyWithoutUserNestedInput
+  refreshSessions?: Prisma.RefreshSessionUpdateManyWithoutUserNestedInput
+  pipelines?: Prisma.RepositoryPipelineUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutPipelineRunsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  githubIntegration?: Prisma.GithubIntegrationUncheckedUpdateOneWithoutUserNestedInput
+  repositories?: Prisma.RepositoryUncheckedUpdateManyWithoutUserNestedInput
+  refreshSessions?: Prisma.RefreshSessionUncheckedUpdateManyWithoutUserNestedInput
+  pipelines?: Prisma.RepositoryPipelineUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -636,11 +846,15 @@ export type UserUncheckedUpdateWithoutRepositoriesInput = {
 export type UserCountOutputType = {
   repositories: number
   refreshSessions: number
+  pipelines: number
+  pipelineRuns: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   repositories?: boolean | UserCountOutputTypeCountRepositoriesArgs
   refreshSessions?: boolean | UserCountOutputTypeCountRefreshSessionsArgs
+  pipelines?: boolean | UserCountOutputTypeCountPipelinesArgs
+  pipelineRuns?: boolean | UserCountOutputTypeCountPipelineRunsArgs
 }
 
 /**
@@ -667,6 +881,20 @@ export type UserCountOutputTypeCountRefreshSessionsArgs<ExtArgs extends runtime.
   where?: Prisma.RefreshSessionWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountPipelinesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.RepositoryPipelineWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountPipelineRunsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PipelineRunWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -679,6 +907,8 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   githubIntegration?: boolean | Prisma.User$githubIntegrationArgs<ExtArgs>
   repositories?: boolean | Prisma.User$repositoriesArgs<ExtArgs>
   refreshSessions?: boolean | Prisma.User$refreshSessionsArgs<ExtArgs>
+  pipelines?: boolean | Prisma.User$pipelinesArgs<ExtArgs>
+  pipelineRuns?: boolean | Prisma.User$pipelineRunsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -717,6 +947,8 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   githubIntegration?: boolean | Prisma.User$githubIntegrationArgs<ExtArgs>
   repositories?: boolean | Prisma.User$repositoriesArgs<ExtArgs>
   refreshSessions?: boolean | Prisma.User$refreshSessionsArgs<ExtArgs>
+  pipelines?: boolean | Prisma.User$pipelinesArgs<ExtArgs>
+  pipelineRuns?: boolean | Prisma.User$pipelineRunsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -728,6 +960,8 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     githubIntegration: Prisma.$GithubIntegrationPayload<ExtArgs> | null
     repositories: Prisma.$RepositoryPayload<ExtArgs>[]
     refreshSessions: Prisma.$RefreshSessionPayload<ExtArgs>[]
+    pipelines: Prisma.$RepositoryPipelinePayload<ExtArgs>[]
+    pipelineRuns: Prisma.$PipelineRunPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1134,6 +1368,8 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   githubIntegration<T extends Prisma.User$githubIntegrationArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$githubIntegrationArgs<ExtArgs>>): Prisma.Prisma__GithubIntegrationClient<runtime.Types.Result.GetResult<Prisma.$GithubIntegrationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   repositories<T extends Prisma.User$repositoriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$repositoriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RepositoryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   refreshSessions<T extends Prisma.User$refreshSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$refreshSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RefreshSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  pipelines<T extends Prisma.User$pipelinesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$pipelinesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RepositoryPipelinePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  pipelineRuns<T extends Prisma.User$pipelineRunsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$pipelineRunsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PipelineRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1627,6 +1863,54 @@ export type User$refreshSessionsArgs<ExtArgs extends runtime.Types.Extensions.In
   take?: number
   skip?: number
   distinct?: Prisma.RefreshSessionScalarFieldEnum | Prisma.RefreshSessionScalarFieldEnum[]
+}
+
+/**
+ * User.pipelines
+ */
+export type User$pipelinesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RepositoryPipeline
+   */
+  select?: Prisma.RepositoryPipelineSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the RepositoryPipeline
+   */
+  omit?: Prisma.RepositoryPipelineOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.RepositoryPipelineInclude<ExtArgs> | null
+  where?: Prisma.RepositoryPipelineWhereInput
+  orderBy?: Prisma.RepositoryPipelineOrderByWithRelationInput | Prisma.RepositoryPipelineOrderByWithRelationInput[]
+  cursor?: Prisma.RepositoryPipelineWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.RepositoryPipelineScalarFieldEnum | Prisma.RepositoryPipelineScalarFieldEnum[]
+}
+
+/**
+ * User.pipelineRuns
+ */
+export type User$pipelineRunsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PipelineRun
+   */
+  select?: Prisma.PipelineRunSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PipelineRun
+   */
+  omit?: Prisma.PipelineRunOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PipelineRunInclude<ExtArgs> | null
+  where?: Prisma.PipelineRunWhereInput
+  orderBy?: Prisma.PipelineRunOrderByWithRelationInput | Prisma.PipelineRunOrderByWithRelationInput[]
+  cursor?: Prisma.PipelineRunWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PipelineRunScalarFieldEnum | Prisma.PipelineRunScalarFieldEnum[]
 }
 
 /**

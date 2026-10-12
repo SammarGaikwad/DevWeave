@@ -33,3 +33,27 @@ export const RepositoryProvider = {
 } as const
 
 export type RepositoryProvider = (typeof RepositoryProvider)[keyof typeof RepositoryProvider]
+
+
+export const PipelineStatus = {
+  QUEUED: 'QUEUED',
+  RUNNING: 'RUNNING',
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED',
+  ABORTED: 'ABORTED',
+  UNKNOWN: 'UNKNOWN'
+} as const
+
+export type PipelineStatus = (typeof PipelineStatus)[keyof typeof PipelineStatus]
+
+
+export const PipelineStageStatus = {
+  PENDING: 'PENDING',
+  RUNNING: 'RUNNING',
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED',
+  ABORTED: 'ABORTED',
+  SKIPPED: 'SKIPPED'
+} as const
+
+export type PipelineStageStatus = (typeof PipelineStageStatus)[keyof typeof PipelineStageStatus]

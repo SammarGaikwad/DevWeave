@@ -4,6 +4,10 @@ import crypto from 'crypto';
 
 const memorySessions = new Map<string, RefreshSession>();
 
+export function clearMemorySessions(): void {
+  memorySessions.clear();
+}
+
 export async function createRefreshSession(data: {
   userId: string;
   tokenHash: string;

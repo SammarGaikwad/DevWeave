@@ -1,24 +1,31 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.js';
-import { prisma } from '../config/database.js';
+import { prisma, isDbAvailable } from '../config/database.js';
+import { clearMemoryUsers } from '../repositories/userRepository.js';
 
 describe('Authentication & RBAC Integration Tests', () => {
   beforeAll(async () => {
+    clearMemoryUsers();
     try {
-      await prisma.user.deleteMany({
-        where: { email: { in: ['testuser@example.com', 'adminuser@example.com'] } },
-      });
+      if (await isDbAvailable()) {
+        await prisma.user.deleteMany({
+          where: { email: { in: ['testuser@example.com', 'adminuser@example.com'] } },
+        });
+      }
     } catch (e) {
       console.warn('⚠️ Test DB notice: Local PostgreSQL is offline or unreachable.', e);
     }
   });
 
   afterAll(async () => {
+    clearMemoryUsers();
     try {
-      await prisma.user.deleteMany({
-        where: { email: { in: ['testuser@example.com', 'adminuser@example.com'] } },
-      });
+      if (await isDbAvailable()) {
+        await prisma.user.deleteMany({
+          where: { email: { in: ['testuser@example.com', 'adminuser@example.com'] } },
+        });
+      }
       await prisma.$disconnect();
     } catch {
       // Ignore disconnect errors

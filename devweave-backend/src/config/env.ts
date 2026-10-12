@@ -1,7 +1,14 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
-dotenv.config();
+if (process.env.NODE_ENV === 'test') {
+  dotenv.config({ path: '.env.test' });
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = 'postgresql://test_user:test_password@localhost:5432/devweave_test';
+  }
+} else {
+  dotenv.config();
+}
 
 const envSchema = z.object({
   PORT: z.string().default('8080').transform((val) => parseInt(val, 10)),

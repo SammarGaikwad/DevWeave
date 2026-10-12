@@ -54,7 +54,10 @@ export const ModelName = {
   User: 'User',
   RefreshSession: 'RefreshSession',
   GithubIntegration: 'GithubIntegration',
-  Repository: 'Repository'
+  Repository: 'Repository',
+  RepositoryPipeline: 'RepositoryPipeline',
+  PipelineRun: 'PipelineRun',
+  PipelineStageRun: 'PipelineStageRun'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -134,12 +137,80 @@ export const RepositoryScalarFieldEnum = {
 export type RepositoryScalarFieldEnum = (typeof RepositoryScalarFieldEnum)[keyof typeof RepositoryScalarFieldEnum]
 
 
+export const RepositoryPipelineScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  templateId: 'templateId',
+  branch: 'branch',
+  config: 'config',
+  jenkinsJobName: 'jenkinsJobName',
+  repositoryId: 'repositoryId',
+  userId: 'userId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type RepositoryPipelineScalarFieldEnum = (typeof RepositoryPipelineScalarFieldEnum)[keyof typeof RepositoryPipelineScalarFieldEnum]
+
+
+export const PipelineRunScalarFieldEnum = {
+  id: 'id',
+  pipelineId: 'pipelineId',
+  repositoryId: 'repositoryId',
+  userId: 'userId',
+  templateId: 'templateId',
+  branch: 'branch',
+  jenkinsJobName: 'jenkinsJobName',
+  jenkinsQueueItemId: 'jenkinsQueueItemId',
+  jenkinsBuildNumber: 'jenkinsBuildNumber',
+  status: 'status',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  durationMs: 'durationMs',
+  commitSha: 'commitSha',
+  commitMessage: 'commitMessage',
+  author: 'author',
+  jenkinsBuildUrl: 'jenkinsBuildUrl',
+  errorSummary: 'errorSummary',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PipelineRunScalarFieldEnum = (typeof PipelineRunScalarFieldEnum)[keyof typeof PipelineRunScalarFieldEnum]
+
+
+export const PipelineStageRunScalarFieldEnum = {
+  id: 'id',
+  runId: 'runId',
+  stageId: 'stageId',
+  name: 'name',
+  order: 'order',
+  status: 'status',
+  durationMs: 'durationMs',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  errorDetails: 'errorDetails',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PipelineStageRunScalarFieldEnum = (typeof PipelineStageRunScalarFieldEnum)[keyof typeof PipelineStageRunScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
 export const QueryMode = {
@@ -156,4 +227,13 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 

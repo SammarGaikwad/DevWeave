@@ -24,17 +24,37 @@ enum RepositoryProvider {
   BITBUCKET
 }
 
+enum PipelineStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+  ABORTED
+  UNKNOWN
+}
+
+enum PipelineStageStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  ABORTED
+  SKIPPED
+}
+
 model User {
-  id                String             @id @default(uuid())
+  id                String               @id @default(uuid())
   name              String
-  email             String             @unique
+  email             String               @unique
   passwordHash      String
-  role              Role               @default(DEVELOPER)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  role              Role                 @default(DEVELOPER)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
   githubIntegration GithubIntegration?
   repositories      Repository[]
   refreshSessions   RefreshSession[]
+  pipelines         RepositoryPipeline[]
+  pipelineRuns      PipelineRun[]
 
   @@index([email])
 }
@@ -82,9 +102,80 @@ model Repository {
   sourceProvider RepositoryProvider   @default(GITHUB)
   userId         String?
   user           User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  pipelines      RepositoryPipeline[]
+  pipelineRuns   PipelineRun[]
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
 
   @@index([userId])
   @@index([externalId])
+}
+
+model RepositoryPipeline {
+  id             String        @id @default(uuid())
+  name           String
+  templateId     String
+  branch         String        @default("main")
+  config         Json?
+  jenkinsJobName String
+  repositoryId   String
+  repository     Repository    @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  runs           PipelineRun[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([repositoryId])
+  @@index([userId])
+}
+
+model PipelineRun {
+  id                 String             @id @default(uuid())
+  pipelineId         String
+  pipeline           RepositoryPipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  repositoryId       String
+  repository         Repository         @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  templateId         String
+  branch             String
+  jenkinsJobName     String
+  jenkinsQueueItemId Int?
+  jenkinsBuildNumber Int?
+  status             PipelineStatus     @default(QUEUED)
+  startedAt          DateTime?
+  completedAt        DateTime?
+  durationMs         Int?
+  commitSha          String?
+  commitMessage      String?
+  author             String?
+  jenkinsBuildUrl    String?
+  errorSummary       String?
+  stageRuns          PipelineStageRun[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([pipelineId])
+  @@index([repositoryId])
+  @@index([userId])
+  @@index([status])
+}
+
+model PipelineStageRun {
+  id           String              @id @default(uuid())
+  runId        String
+  run          PipelineRun         @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stageId      String
+  name         String
+  order        Int                 @default(0)
+  status       PipelineStageStatus @default(PENDING)
+  durationMs   Int                 @default(0)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  errorDetails String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([runId])
 }

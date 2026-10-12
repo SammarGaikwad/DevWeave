@@ -61,3 +61,18 @@ export type GithubIntegration = Prisma.GithubIntegrationModel
  * 
  */
 export type Repository = Prisma.RepositoryModel
+/**
+ * Model RepositoryPipeline
+ * 
+ */
+export type RepositoryPipeline = Prisma.RepositoryPipelineModel
+/**
+ * Model PipelineRun
+ * 
+ */
+export type PipelineRun = Prisma.PipelineRunModel
+/**
+ * Model PipelineStageRun
+ * 
+ */
+export type PipelineStageRun = Prisma.PipelineStageRunModel

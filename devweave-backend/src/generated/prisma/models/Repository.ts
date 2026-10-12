@@ -309,6 +309,8 @@ export type RepositoryWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Repository"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Repository"> | Date | string
   user?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
+  pipelines?: Prisma.RepositoryPipelineListRelationFilter
+  pipelineRuns?: Prisma.PipelineRunListRelationFilter
 }
 
 export type RepositoryOrderByWithRelationInput = {
@@ -329,6 +331,8 @@ export type RepositoryOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
+  pipelines?: Prisma.RepositoryPipelineOrderByRelationAggregateInput
+  pipelineRuns?: Prisma.PipelineRunOrderByRelationAggregateInput
 }
 
 export type RepositoryWhereUniqueInput = Prisma.AtLeast<{
@@ -352,6 +356,8 @@ export type RepositoryWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Repository"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Repository"> | Date | string
   user?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
+  pipelines?: Prisma.RepositoryPipelineListRelationFilter
+  pipelineRuns?: Prisma.PipelineRunListRelationFilter
 }, "id">
 
 export type RepositoryOrderByWithAggregationInput = {
@@ -417,6 +423,8 @@ export type RepositoryCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user?: Prisma.UserCreateNestedOneWithoutRepositoriesInput
+  pipelines?: Prisma.RepositoryPipelineCreateNestedManyWithoutRepositoryInput
+  pipelineRuns?: Prisma.PipelineRunCreateNestedManyWithoutRepositoryInput
 }
 
 export type RepositoryUncheckedCreateInput = {
@@ -436,6 +444,8 @@ export type RepositoryUncheckedCreateInput = {
   userId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  pipelines?: Prisma.RepositoryPipelineUncheckedCreateNestedManyWithoutRepositoryInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedCreateNestedManyWithoutRepositoryInput
 }
 
 export type RepositoryUpdateInput = {
@@ -455,6 +465,8 @@ export type RepositoryUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneWithoutRepositoriesNestedInput
+  pipelines?: Prisma.RepositoryPipelineUpdateManyWithoutRepositoryNestedInput
+  pipelineRuns?: Prisma.PipelineRunUpdateManyWithoutRepositoryNestedInput
 }
 
 export type RepositoryUncheckedUpdateInput = {
@@ -474,6 +486,8 @@ export type RepositoryUncheckedUpdateInput = {
   userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pipelines?: Prisma.RepositoryPipelineUncheckedUpdateManyWithoutRepositoryNestedInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedUpdateManyWithoutRepositoryNestedInput
 }
 
 export type RepositoryCreateManyInput = {
@@ -609,6 +623,11 @@ export type RepositorySumOrderByAggregateInput = {
   forks?: Prisma.SortOrder
 }
 
+export type RepositoryScalarRelationFilter = {
+  is?: Prisma.RepositoryWhereInput
+  isNot?: Prisma.RepositoryWhereInput
+}
+
 export type RepositoryCreateNestedManyWithoutUserInput = {
   create?: Prisma.XOR<Prisma.RepositoryCreateWithoutUserInput, Prisma.RepositoryUncheckedCreateWithoutUserInput> | Prisma.RepositoryCreateWithoutUserInput[] | Prisma.RepositoryUncheckedCreateWithoutUserInput[]
   connectOrCreate?: Prisma.RepositoryCreateOrConnectWithoutUserInput | Prisma.RepositoryCreateOrConnectWithoutUserInput[]
@@ -671,6 +690,34 @@ export type EnumRepositoryProviderFieldUpdateOperationsInput = {
   set?: $Enums.RepositoryProvider
 }
 
+export type RepositoryCreateNestedOneWithoutPipelinesInput = {
+  create?: Prisma.XOR<Prisma.RepositoryCreateWithoutPipelinesInput, Prisma.RepositoryUncheckedCreateWithoutPipelinesInput>
+  connectOrCreate?: Prisma.RepositoryCreateOrConnectWithoutPipelinesInput
+  connect?: Prisma.RepositoryWhereUniqueInput
+}
+
+export type RepositoryUpdateOneRequiredWithoutPipelinesNestedInput = {
+  create?: Prisma.XOR<Prisma.RepositoryCreateWithoutPipelinesInput, Prisma.RepositoryUncheckedCreateWithoutPipelinesInput>
+  connectOrCreate?: Prisma.RepositoryCreateOrConnectWithoutPipelinesInput
+  upsert?: Prisma.RepositoryUpsertWithoutPipelinesInput
+  connect?: Prisma.RepositoryWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.RepositoryUpdateToOneWithWhereWithoutPipelinesInput, Prisma.RepositoryUpdateWithoutPipelinesInput>, Prisma.RepositoryUncheckedUpdateWithoutPipelinesInput>
+}
+
+export type RepositoryCreateNestedOneWithoutPipelineRunsInput = {
+  create?: Prisma.XOR<Prisma.RepositoryCreateWithoutPipelineRunsInput, Prisma.RepositoryUncheckedCreateWithoutPipelineRunsInput>
+  connectOrCreate?: Prisma.RepositoryCreateOrConnectWithoutPipelineRunsInput
+  connect?: Prisma.RepositoryWhereUniqueInput
+}
+
+export type RepositoryUpdateOneRequiredWithoutPipelineRunsNestedInput = {
+  create?: Prisma.XOR<Prisma.RepositoryCreateWithoutPipelineRunsInput, Prisma.RepositoryUncheckedCreateWithoutPipelineRunsInput>
+  connectOrCreate?: Prisma.RepositoryCreateOrConnectWithoutPipelineRunsInput
+  upsert?: Prisma.RepositoryUpsertWithoutPipelineRunsInput
+  connect?: Prisma.RepositoryWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.RepositoryUpdateToOneWithWhereWithoutPipelineRunsInput, Prisma.RepositoryUpdateWithoutPipelineRunsInput>, Prisma.RepositoryUncheckedUpdateWithoutPipelineRunsInput>
+}
+
 export type RepositoryCreateWithoutUserInput = {
   id?: string
   externalId?: string | null
@@ -687,6 +734,8 @@ export type RepositoryCreateWithoutUserInput = {
   sourceProvider?: $Enums.RepositoryProvider
   createdAt?: Date | string
   updatedAt?: Date | string
+  pipelines?: Prisma.RepositoryPipelineCreateNestedManyWithoutRepositoryInput
+  pipelineRuns?: Prisma.PipelineRunCreateNestedManyWithoutRepositoryInput
 }
 
 export type RepositoryUncheckedCreateWithoutUserInput = {
@@ -705,6 +754,8 @@ export type RepositoryUncheckedCreateWithoutUserInput = {
   sourceProvider?: $Enums.RepositoryProvider
   createdAt?: Date | string
   updatedAt?: Date | string
+  pipelines?: Prisma.RepositoryPipelineUncheckedCreateNestedManyWithoutRepositoryInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedCreateNestedManyWithoutRepositoryInput
 }
 
 export type RepositoryCreateOrConnectWithoutUserInput = {
@@ -755,6 +806,198 @@ export type RepositoryScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"Repository"> | Date | string
 }
 
+export type RepositoryCreateWithoutPipelinesInput = {
+  id?: string
+  externalId?: string | null
+  name: string
+  fullName?: string | null
+  description?: string | null
+  owner?: string | null
+  visibility?: $Enums.RepositoryVisibility
+  language?: string | null
+  defaultBranch?: string | null
+  stars?: number
+  forks?: number
+  archived?: boolean
+  sourceProvider?: $Enums.RepositoryProvider
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user?: Prisma.UserCreateNestedOneWithoutRepositoriesInput
+  pipelineRuns?: Prisma.PipelineRunCreateNestedManyWithoutRepositoryInput
+}
+
+export type RepositoryUncheckedCreateWithoutPipelinesInput = {
+  id?: string
+  externalId?: string | null
+  name: string
+  fullName?: string | null
+  description?: string | null
+  owner?: string | null
+  visibility?: $Enums.RepositoryVisibility
+  language?: string | null
+  defaultBranch?: string | null
+  stars?: number
+  forks?: number
+  archived?: boolean
+  sourceProvider?: $Enums.RepositoryProvider
+  userId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  pipelineRuns?: Prisma.PipelineRunUncheckedCreateNestedManyWithoutRepositoryInput
+}
+
+export type RepositoryCreateOrConnectWithoutPipelinesInput = {
+  where: Prisma.RepositoryWhereUniqueInput
+  create: Prisma.XOR<Prisma.RepositoryCreateWithoutPipelinesInput, Prisma.RepositoryUncheckedCreateWithoutPipelinesInput>
+}
+
+export type RepositoryUpsertWithoutPipelinesInput = {
+  update: Prisma.XOR<Prisma.RepositoryUpdateWithoutPipelinesInput, Prisma.RepositoryUncheckedUpdateWithoutPipelinesInput>
+  create: Prisma.XOR<Prisma.RepositoryCreateWithoutPipelinesInput, Prisma.RepositoryUncheckedCreateWithoutPipelinesInput>
+  where?: Prisma.RepositoryWhereInput
+}
+
+export type RepositoryUpdateToOneWithWhereWithoutPipelinesInput = {
+  where?: Prisma.RepositoryWhereInput
+  data: Prisma.XOR<Prisma.RepositoryUpdateWithoutPipelinesInput, Prisma.RepositoryUncheckedUpdateWithoutPipelinesInput>
+}
+
+export type RepositoryUpdateWithoutPipelinesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  externalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  owner?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visibility?: Prisma.EnumRepositoryVisibilityFieldUpdateOperationsInput | $Enums.RepositoryVisibility
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  defaultBranch?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stars?: Prisma.IntFieldUpdateOperationsInput | number
+  forks?: Prisma.IntFieldUpdateOperationsInput | number
+  archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  sourceProvider?: Prisma.EnumRepositoryProviderFieldUpdateOperationsInput | $Enums.RepositoryProvider
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneWithoutRepositoriesNestedInput
+  pipelineRuns?: Prisma.PipelineRunUpdateManyWithoutRepositoryNestedInput
+}
+
+export type RepositoryUncheckedUpdateWithoutPipelinesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  externalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  owner?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visibility?: Prisma.EnumRepositoryVisibilityFieldUpdateOperationsInput | $Enums.RepositoryVisibility
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  defaultBranch?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stars?: Prisma.IntFieldUpdateOperationsInput | number
+  forks?: Prisma.IntFieldUpdateOperationsInput | number
+  archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  sourceProvider?: Prisma.EnumRepositoryProviderFieldUpdateOperationsInput | $Enums.RepositoryProvider
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pipelineRuns?: Prisma.PipelineRunUncheckedUpdateManyWithoutRepositoryNestedInput
+}
+
+export type RepositoryCreateWithoutPipelineRunsInput = {
+  id?: string
+  externalId?: string | null
+  name: string
+  fullName?: string | null
+  description?: string | null
+  owner?: string | null
+  visibility?: $Enums.RepositoryVisibility
+  language?: string | null
+  defaultBranch?: string | null
+  stars?: number
+  forks?: number
+  archived?: boolean
+  sourceProvider?: $Enums.RepositoryProvider
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user?: Prisma.UserCreateNestedOneWithoutRepositoriesInput
+  pipelines?: Prisma.RepositoryPipelineCreateNestedManyWithoutRepositoryInput
+}
+
+export type RepositoryUncheckedCreateWithoutPipelineRunsInput = {
+  id?: string
+  externalId?: string | null
+  name: string
+  fullName?: string | null
+  description?: string | null
+  owner?: string | null
+  visibility?: $Enums.RepositoryVisibility
+  language?: string | null
+  defaultBranch?: string | null
+  stars?: number
+  forks?: number
+  archived?: boolean
+  sourceProvider?: $Enums.RepositoryProvider
+  userId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  pipelines?: Prisma.RepositoryPipelineUncheckedCreateNestedManyWithoutRepositoryInput
+}
+
+export type RepositoryCreateOrConnectWithoutPipelineRunsInput = {
+  where: Prisma.RepositoryWhereUniqueInput
+  create: Prisma.XOR<Prisma.RepositoryCreateWithoutPipelineRunsInput, Prisma.RepositoryUncheckedCreateWithoutPipelineRunsInput>
+}
+
+export type RepositoryUpsertWithoutPipelineRunsInput = {
+  update: Prisma.XOR<Prisma.RepositoryUpdateWithoutPipelineRunsInput, Prisma.RepositoryUncheckedUpdateWithoutPipelineRunsInput>
+  create: Prisma.XOR<Prisma.RepositoryCreateWithoutPipelineRunsInput, Prisma.RepositoryUncheckedCreateWithoutPipelineRunsInput>
+  where?: Prisma.RepositoryWhereInput
+}
+
+export type RepositoryUpdateToOneWithWhereWithoutPipelineRunsInput = {
+  where?: Prisma.RepositoryWhereInput
+  data: Prisma.XOR<Prisma.RepositoryUpdateWithoutPipelineRunsInput, Prisma.RepositoryUncheckedUpdateWithoutPipelineRunsInput>
+}
+
+export type RepositoryUpdateWithoutPipelineRunsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  externalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  owner?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visibility?: Prisma.EnumRepositoryVisibilityFieldUpdateOperationsInput | $Enums.RepositoryVisibility
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  defaultBranch?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stars?: Prisma.IntFieldUpdateOperationsInput | number
+  forks?: Prisma.IntFieldUpdateOperationsInput | number
+  archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  sourceProvider?: Prisma.EnumRepositoryProviderFieldUpdateOperationsInput | $Enums.RepositoryProvider
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneWithoutRepositoriesNestedInput
+  pipelines?: Prisma.RepositoryPipelineUpdateManyWithoutRepositoryNestedInput
+}
+
+export type RepositoryUncheckedUpdateWithoutPipelineRunsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  externalId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  owner?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  visibility?: Prisma.EnumRepositoryVisibilityFieldUpdateOperationsInput | $Enums.RepositoryVisibility
+  language?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  defaultBranch?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stars?: Prisma.IntFieldUpdateOperationsInput | number
+  forks?: Prisma.IntFieldUpdateOperationsInput | number
+  archived?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  sourceProvider?: Prisma.EnumRepositoryProviderFieldUpdateOperationsInput | $Enums.RepositoryProvider
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pipelines?: Prisma.RepositoryPipelineUncheckedUpdateManyWithoutRepositoryNestedInput
+}
+
 export type RepositoryCreateManyUserInput = {
   id?: string
   externalId?: string | null
@@ -789,6 +1032,8 @@ export type RepositoryUpdateWithoutUserInput = {
   sourceProvider?: Prisma.EnumRepositoryProviderFieldUpdateOperationsInput | $Enums.RepositoryProvider
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pipelines?: Prisma.RepositoryPipelineUpdateManyWithoutRepositoryNestedInput
+  pipelineRuns?: Prisma.PipelineRunUpdateManyWithoutRepositoryNestedInput
 }
 
 export type RepositoryUncheckedUpdateWithoutUserInput = {
@@ -807,6 +1052,8 @@ export type RepositoryUncheckedUpdateWithoutUserInput = {
   sourceProvider?: Prisma.EnumRepositoryProviderFieldUpdateOperationsInput | $Enums.RepositoryProvider
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pipelines?: Prisma.RepositoryPipelineUncheckedUpdateManyWithoutRepositoryNestedInput
+  pipelineRuns?: Prisma.PipelineRunUncheckedUpdateManyWithoutRepositoryNestedInput
 }
 
 export type RepositoryUncheckedUpdateManyWithoutUserInput = {
@@ -828,6 +1075,44 @@ export type RepositoryUncheckedUpdateManyWithoutUserInput = {
 }
 
 
+/**
+ * Count Type RepositoryCountOutputType
+ */
+
+export type RepositoryCountOutputType = {
+  pipelines: number
+  pipelineRuns: number
+}
+
+export type RepositoryCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  pipelines?: boolean | RepositoryCountOutputTypeCountPipelinesArgs
+  pipelineRuns?: boolean | RepositoryCountOutputTypeCountPipelineRunsArgs
+}
+
+/**
+ * RepositoryCountOutputType without action
+ */
+export type RepositoryCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RepositoryCountOutputType
+   */
+  select?: Prisma.RepositoryCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * RepositoryCountOutputType without action
+ */
+export type RepositoryCountOutputTypeCountPipelinesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.RepositoryPipelineWhereInput
+}
+
+/**
+ * RepositoryCountOutputType without action
+ */
+export type RepositoryCountOutputTypeCountPipelineRunsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PipelineRunWhereInput
+}
+
 
 export type RepositorySelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -847,6 +1132,9 @@ export type RepositorySelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.Repository$userArgs<ExtArgs>
+  pipelines?: boolean | Prisma.Repository$pipelinesArgs<ExtArgs>
+  pipelineRuns?: boolean | Prisma.Repository$pipelineRunsArgs<ExtArgs>
+  _count?: boolean | Prisma.RepositoryCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["repository"]>
 
 export type RepositorySelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -911,6 +1199,9 @@ export type RepositorySelectScalar = {
 export type RepositoryOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "externalId" | "name" | "fullName" | "description" | "owner" | "visibility" | "language" | "defaultBranch" | "stars" | "forks" | "archived" | "sourceProvider" | "userId" | "createdAt" | "updatedAt", ExtArgs["result"]["repository"]>
 export type RepositoryInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.Repository$userArgs<ExtArgs>
+  pipelines?: boolean | Prisma.Repository$pipelinesArgs<ExtArgs>
+  pipelineRuns?: boolean | Prisma.Repository$pipelineRunsArgs<ExtArgs>
+  _count?: boolean | Prisma.RepositoryCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type RepositoryIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.Repository$userArgs<ExtArgs>
@@ -923,6 +1214,8 @@ export type $RepositoryPayload<ExtArgs extends runtime.Types.Extensions.Internal
   name: "Repository"
   objects: {
     user: Prisma.$UserPayload<ExtArgs> | null
+    pipelines: Prisma.$RepositoryPipelinePayload<ExtArgs>[]
+    pipelineRuns: Prisma.$PipelineRunPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1336,6 +1629,8 @@ readonly fields: RepositoryFieldRefs;
 export interface Prisma__RepositoryClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   user<T extends Prisma.Repository$userArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Repository$userArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  pipelines<T extends Prisma.Repository$pipelinesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Repository$pipelinesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RepositoryPipelinePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  pipelineRuns<T extends Prisma.Repository$pipelineRunsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Repository$pipelineRunsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PipelineRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1798,6 +2093,54 @@ export type Repository$userArgs<ExtArgs extends runtime.Types.Extensions.Interna
    */
   include?: Prisma.UserInclude<ExtArgs> | null
   where?: Prisma.UserWhereInput
+}
+
+/**
+ * Repository.pipelines
+ */
+export type Repository$pipelinesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RepositoryPipeline
+   */
+  select?: Prisma.RepositoryPipelineSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the RepositoryPipeline
+   */
+  omit?: Prisma.RepositoryPipelineOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.RepositoryPipelineInclude<ExtArgs> | null
+  where?: Prisma.RepositoryPipelineWhereInput
+  orderBy?: Prisma.RepositoryPipelineOrderByWithRelationInput | Prisma.RepositoryPipelineOrderByWithRelationInput[]
+  cursor?: Prisma.RepositoryPipelineWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.RepositoryPipelineScalarFieldEnum | Prisma.RepositoryPipelineScalarFieldEnum[]
+}
+
+/**
+ * Repository.pipelineRuns
+ */
+export type Repository$pipelineRunsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PipelineRun
+   */
+  select?: Prisma.PipelineRunSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PipelineRun
+   */
+  omit?: Prisma.PipelineRunOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PipelineRunInclude<ExtArgs> | null
+  where?: Prisma.PipelineRunWhereInput
+  orderBy?: Prisma.PipelineRunOrderByWithRelationInput | Prisma.PipelineRunOrderByWithRelationInput[]
+  cursor?: Prisma.PipelineRunWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PipelineRunScalarFieldEnum | Prisma.PipelineRunScalarFieldEnum[]
 }
 
 /**

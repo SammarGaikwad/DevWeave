@@ -400,7 +400,10 @@ export const ModelName = {
   User: 'User',
   RefreshSession: 'RefreshSession',
   GithubIntegration: 'GithubIntegration',
-  Repository: 'Repository'
+  Repository: 'Repository',
+  RepositoryPipeline: 'RepositoryPipeline',
+  PipelineRun: 'PipelineRun',
+  PipelineStageRun: 'PipelineStageRun'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -416,7 +419,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "refreshSession" | "githubIntegration" | "repository"
+    modelProps: "user" | "refreshSession" | "githubIntegration" | "repository" | "repositoryPipeline" | "pipelineRun" | "pipelineStageRun"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -716,6 +719,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    RepositoryPipeline: {
+      payload: Prisma.$RepositoryPipelinePayload<ExtArgs>
+      fields: Prisma.RepositoryPipelineFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.RepositoryPipelineFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryPipelinePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.RepositoryPipelineFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryPipelinePayload>
+        }
+        findFirst: {
+          args: Prisma.RepositoryPipelineFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryPipelinePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.RepositoryPipelineFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryPipelinePayload>
+        }
+        findMany: {
+          args: Prisma.RepositoryPipelineFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryPipelinePayload>[]
+        }
+        create: {
+          args: Prisma.RepositoryPipelineCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryPipelinePayload>
+        }
+        createMany: {
+          args: Prisma.RepositoryPipelineCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.RepositoryPipelineCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryPipelinePayload>[]
+        }
+        delete: {
+          args: Prisma.RepositoryPipelineDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryPipelinePayload>
+        }
+        update: {
+          args: Prisma.RepositoryPipelineUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryPipelinePayload>
+        }
+        deleteMany: {
+          args: Prisma.RepositoryPipelineDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.RepositoryPipelineUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.RepositoryPipelineUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryPipelinePayload>[]
+        }
+        upsert: {
+          args: Prisma.RepositoryPipelineUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RepositoryPipelinePayload>
+        }
+        aggregate: {
+          args: Prisma.RepositoryPipelineAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateRepositoryPipeline>
+        }
+        groupBy: {
+          args: Prisma.RepositoryPipelineGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RepositoryPipelineGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.RepositoryPipelineCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RepositoryPipelineCountAggregateOutputType> | number
+        }
+      }
+    }
+    PipelineRun: {
+      payload: Prisma.$PipelineRunPayload<ExtArgs>
+      fields: Prisma.PipelineRunFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PipelineRunFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineRunPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PipelineRunFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineRunPayload>
+        }
+        findFirst: {
+          args: Prisma.PipelineRunFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineRunPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PipelineRunFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineRunPayload>
+        }
+        findMany: {
+          args: Prisma.PipelineRunFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineRunPayload>[]
+        }
+        create: {
+          args: Prisma.PipelineRunCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineRunPayload>
+        }
+        createMany: {
+          args: Prisma.PipelineRunCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PipelineRunCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineRunPayload>[]
+        }
+        delete: {
+          args: Prisma.PipelineRunDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineRunPayload>
+        }
+        update: {
+          args: Prisma.PipelineRunUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineRunPayload>
+        }
+        deleteMany: {
+          args: Prisma.PipelineRunDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PipelineRunUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PipelineRunUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineRunPayload>[]
+        }
+        upsert: {
+          args: Prisma.PipelineRunUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineRunPayload>
+        }
+        aggregate: {
+          args: Prisma.PipelineRunAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePipelineRun>
+        }
+        groupBy: {
+          args: Prisma.PipelineRunGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PipelineRunGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PipelineRunCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PipelineRunCountAggregateOutputType> | number
+        }
+      }
+    }
+    PipelineStageRun: {
+      payload: Prisma.$PipelineStageRunPayload<ExtArgs>
+      fields: Prisma.PipelineStageRunFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PipelineStageRunFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineStageRunPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PipelineStageRunFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineStageRunPayload>
+        }
+        findFirst: {
+          args: Prisma.PipelineStageRunFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineStageRunPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PipelineStageRunFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineStageRunPayload>
+        }
+        findMany: {
+          args: Prisma.PipelineStageRunFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineStageRunPayload>[]
+        }
+        create: {
+          args: Prisma.PipelineStageRunCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineStageRunPayload>
+        }
+        createMany: {
+          args: Prisma.PipelineStageRunCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PipelineStageRunCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineStageRunPayload>[]
+        }
+        delete: {
+          args: Prisma.PipelineStageRunDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineStageRunPayload>
+        }
+        update: {
+          args: Prisma.PipelineStageRunUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineStageRunPayload>
+        }
+        deleteMany: {
+          args: Prisma.PipelineStageRunDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PipelineStageRunUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PipelineStageRunUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineStageRunPayload>[]
+        }
+        upsert: {
+          args: Prisma.PipelineStageRunUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PipelineStageRunPayload>
+        }
+        aggregate: {
+          args: Prisma.PipelineStageRunAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePipelineStageRun>
+        }
+        groupBy: {
+          args: Prisma.PipelineStageRunGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PipelineStageRunGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PipelineStageRunCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PipelineStageRunCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -816,12 +1041,80 @@ export const RepositoryScalarFieldEnum = {
 export type RepositoryScalarFieldEnum = (typeof RepositoryScalarFieldEnum)[keyof typeof RepositoryScalarFieldEnum]
 
 
+export const RepositoryPipelineScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  templateId: 'templateId',
+  branch: 'branch',
+  config: 'config',
+  jenkinsJobName: 'jenkinsJobName',
+  repositoryId: 'repositoryId',
+  userId: 'userId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type RepositoryPipelineScalarFieldEnum = (typeof RepositoryPipelineScalarFieldEnum)[keyof typeof RepositoryPipelineScalarFieldEnum]
+
+
+export const PipelineRunScalarFieldEnum = {
+  id: 'id',
+  pipelineId: 'pipelineId',
+  repositoryId: 'repositoryId',
+  userId: 'userId',
+  templateId: 'templateId',
+  branch: 'branch',
+  jenkinsJobName: 'jenkinsJobName',
+  jenkinsQueueItemId: 'jenkinsQueueItemId',
+  jenkinsBuildNumber: 'jenkinsBuildNumber',
+  status: 'status',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  durationMs: 'durationMs',
+  commitSha: 'commitSha',
+  commitMessage: 'commitMessage',
+  author: 'author',
+  jenkinsBuildUrl: 'jenkinsBuildUrl',
+  errorSummary: 'errorSummary',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PipelineRunScalarFieldEnum = (typeof PipelineRunScalarFieldEnum)[keyof typeof PipelineRunScalarFieldEnum]
+
+
+export const PipelineStageRunScalarFieldEnum = {
+  id: 'id',
+  runId: 'runId',
+  stageId: 'stageId',
+  name: 'name',
+  order: 'order',
+  status: 'status',
+  durationMs: 'durationMs',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  errorDetails: 'errorDetails',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PipelineStageRunScalarFieldEnum = (typeof PipelineStageRunScalarFieldEnum)[keyof typeof PipelineStageRunScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
 export const QueryMode = {
@@ -838,6 +1131,15 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 
 
 
@@ -934,6 +1236,48 @@ export type EnumRepositoryProviderFieldRefInput<$PrismaModel> = FieldRefInputTyp
  * Reference to a field of type 'RepositoryProvider[]'
  */
 export type ListEnumRepositoryProviderFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'RepositoryProvider[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
+    
+
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
+    
+
+
+/**
+ * Reference to a field of type 'PipelineStatus'
+ */
+export type EnumPipelineStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PipelineStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'PipelineStatus[]'
+ */
+export type ListEnumPipelineStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PipelineStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'PipelineStageStatus'
+ */
+export type EnumPipelineStageStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PipelineStageStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'PipelineStageStatus[]'
+ */
+export type ListEnumPipelineStageStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PipelineStageStatus[]'>
     
 
 
@@ -1105,6 +1449,9 @@ export type GlobalOmitConfig = {
   refreshSession?: Prisma.RefreshSessionOmit
   githubIntegration?: Prisma.GithubIntegrationOmit
   repository?: Prisma.RepositoryOmit
+  repositoryPipeline?: Prisma.RepositoryPipelineOmit
+  pipelineRun?: Prisma.PipelineRunOmit
+  pipelineStageRun?: Prisma.PipelineStageRunOmit
 }
 
 /* Types for Logging */
