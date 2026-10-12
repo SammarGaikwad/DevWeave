@@ -102,13 +102,71 @@ export async function getJenkinsCrumbHeader(): Promise<Record<string, string>> {
   return {};
 }
 
-function escapeXml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, '&amp;')
+/**
+ * Strips XML 1.0-invalid characters and disallowed control characters from input string.
+ *
+ * XML 1.0 specifies valid characters as:
+ *   #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]
+ *
+ * This function preserves:
+ *   - Tab (\t, U+0009), Newline (\n, U+000A), Carriage return (\r, U+000D)
+ *   - Printable ASCII (U+0020 - U+007E)
+ *   - Valid non-ASCII Unicode (U+00A0 - U+D7FF, U+E000 - U+FFFD, U+10000 - U+10FFFF, e.g. accents, emojis 🚀)
+ *
+ * And removes:
+ *   - C0 control characters (U+0000 - U+0008, U+000B - U+000C, U+000E - U+001F)
+ *   - DEL and C1 control characters (U+007F - U+009F, including U+009F which caused Jenkins XML parse failure)
+ *   - Noncharacters (U+FFFE, U+FFFF) and unpaired surrogates
+ */
+export function stripInvalidXmlChars(input: string): string {
+  if (!input) return '';
+  return input.replace(/[^\t\n\r\u0020-\u007E\u00A0-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/gu, '');
+}
+
+/**
+ * Escapes text content for safe inclusion inside XML elements.
+ *
+ * Order of escaping:
+ * 1. Remove XML-invalid characters and disallowed control characters (including U+009F).
+ * 2. Escape '&' to '&amp;' ONLY when not already part of a valid XML entity (&amp;, &lt;, &gt;, &quot;, &apos;, &#..., &#x...).
+ * 3. Escape '<' to '&lt;'.
+ * 4. Escape '>' to '&gt;'.
+ *
+ * Valid newlines (\n, \r\n), indentation (\t), and script quotes are preserved.
+ */
+export function escapeXmlText(unsafe: string): string {
+  if (!unsafe) return '';
+  const sanitized = stripInvalidXmlChars(unsafe);
+  return sanitized
+    .replace(/&(?!(?:amp|lt|gt|quot|apos|#[0-9]+|#x[0-9a-fA-F]+);)/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .replace(/>/g, '&gt;');
+}
+
+export const escapeXml = escapeXmlText;
+
+/**
+ * Builds the Jenkins FlowDefinition XML config string for a pipeline script.
+ */
+export function buildJenkinsJobXml(
+  declarativePipelineScript: string,
+  description = 'DevWeave Automated Pipeline'
+): string {
+  const escapedScript = escapeXmlText(declarativePipelineScript);
+  const escapedDescription = escapeXmlText(description);
+
+  return `<?xml version="1.1" encoding="UTF-8"?>
+<flow-definition plugin="workflow-job@1602.v2a_70b_80a_2396">
+  <description>${escapedDescription}</description>
+  <keepDependencies>false</keepDependencies>
+  <properties/>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@4383.v04fa_a_3d67b_d9">
+    <script>${escapedScript}</script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>`;
 }
 
 /**
@@ -120,19 +178,7 @@ export async function ensureJenkinsJob(jobName: string, declarativePipelineScrip
   const authHeaders = getJenkinsAuthHeaders();
   const crumbHeader = await getJenkinsCrumbHeader();
 
-  const escapedScript = escapeXml(declarativePipelineScript);
-  const xmlConfig = `<?xml version="1.1" encoding="UTF-8"?>
-<flow-definition plugin="workflow-job@1602.v2a_70b_80a_2396">
-  <description>DevWeave Automated Pipeline</description>
-  <keepDependencies>false</keepDependencies>
-  <properties/>
-  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@4383.v04fa_a_3d67b_d9">
-    <script>${escapedScript}</script>
-    <sandbox>true</sandbox>
-  </definition>
-  <triggers/>
-  <disabled>false</disabled>
-</flow-definition>`;
+  const xmlConfig = buildJenkinsJobXml(declarativePipelineScript);
 
   // 1. Check if job exists
   const checkUrl = `${baseUrl}/job/${encodeURIComponent(jobName)}/api/json`;
@@ -148,7 +194,7 @@ export async function ensureJenkinsJob(jobName: string, declarativePipelineScrip
       headers: {
         ...authHeaders,
         ...crumbHeader,
-        'Content-Type': 'application/xml',
+        'Content-Type': 'application/xml; charset=utf-8',
       },
       body: xmlConfig,
     });
@@ -167,7 +213,7 @@ export async function ensureJenkinsJob(jobName: string, declarativePipelineScrip
       headers: {
         ...authHeaders,
         ...crumbHeader,
-        'Content-Type': 'application/xml',
+        'Content-Type': 'application/xml; charset=utf-8',
       },
       body: xmlConfig,
     });
