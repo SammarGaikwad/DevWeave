@@ -273,7 +273,17 @@ export const Pipelines: React.FC = () => {
     try {
       setLoadingHistory(true);
       const runs = await pipelineService.getRepositoryRuns(repoId);
-      setHistoryRuns(runs);
+      // Jenkins build numbers are unique per job. Collapse duplicate DB run records
+      // that accidentally point to the same Jenkins build, while preserving queued runs.
+      const seenBuilds = new Set<string>();
+      const uniqueRuns = runs.filter((run) => {
+        if (run.jenkinsBuildNumber == null) return true;
+        const key = `${run.jenkinsJobName}#${run.jenkinsBuildNumber}`;
+        if (seenBuilds.has(key)) return false;
+        seenBuilds.add(key);
+        return true;
+      });
+      setHistoryRuns(uniqueRuns);
     } catch {
       // Ignore if no runs yet
     } finally {
@@ -1075,8 +1085,14 @@ export const Pipelines: React.FC = () => {
                     <span className="text-white/40">Duration: {formatDuration(run.durationMs)}</span>
 
                     <button
-                      onClick={() => {
-                        setActiveRun(run);
+                      onClick={async () => {
+                        // Refresh status/stages from Jenkins before opening a historical run.
+                        try {
+                          const refreshedRun = await pipelineService.getPipelineRun(run.id);
+                          setActiveRun(refreshedRun);
+                        } catch {
+                          setActiveRun(run);
+                        }
                         setActiveTab('active');
                       }}
                       className="px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-300 border border-blue-500/20 hover:bg-blue-500/20 transition cursor-pointer"
