@@ -392,15 +392,22 @@ describe('Predefined Pipeline Templates & CI/CD System Tests', () => {
       expect(rootDirField?.defaultValue).toBe('devweave-backend');
     });
 
-    it('should generate pipeline that runs npm ci, test, and build inside devweave-backend by default', () => {
+    it('should configure installCommand default as npm ci --include=dev in template metadata', () => {
+      const template = getPipelineTemplate('nodejs-backend-ci');
+      const installField = template.configFields.find((f) => f.key === 'installCommand');
+      expect(installField).toBeDefined();
+      expect(installField?.defaultValue).toBe('npm ci --include=dev');
+    });
+
+    it('should generate pipeline that runs npm ci --include=dev, test, and build inside devweave-backend by default', () => {
       const script = generateJenkinsfile({
         templateId: 'nodejs-backend-ci',
         repositoryCloneUrl: 'https://github.com/SammarGaikwad/DevWeave.git',
         branch: 'main',
       });
 
-      // Must enclose install, lint, test, and build in dir('devweave-backend')
-      expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm ci'\n                }");
+      // Must enclose install, lint, test, and build in dir('devweave-backend') with --include=dev
+      expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm ci --include=dev'\n                }");
       expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm run lint --if-present'\n                }");
       expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm test --if-present'\n                }");
       expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm run build'\n                }");
@@ -413,20 +420,20 @@ describe('Predefined Pipeline Templates & CI/CD System Tests', () => {
       expect(script).toContain("cleanWs cleanWhenNotBuilt: false");
     });
 
-    it('should target devweave-backend even when config.rootDir is explicitly "."', () => {
+    it('should target devweave-backend and use npm ci --include=dev even when config has rootDir "." or legacy npm ci', () => {
       const script = generateJenkinsfile({
         templateId: 'nodejs-backend-ci',
         repositoryCloneUrl: 'https://github.com/SammarGaikwad/DevWeave.git',
         branch: 'main',
-        config: { rootDir: '.' },
+        config: { rootDir: '.', installCommand: 'npm ci' },
       });
 
-      expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm ci'\n                }");
+      expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm ci --include=dev'\n                }");
       expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm test --if-present'\n                }");
       expect(script).toContain("dir('devweave-backend') {\n                    sh 'npm run build'\n                }");
     });
 
-    it('should respect custom subdirectory when config.rootDir is explicitly provided', () => {
+    it('should respect custom subdirectory and custom install command when explicitly provided', () => {
       const script = generateJenkinsfile({
         templateId: 'nodejs-backend-ci',
         repositoryCloneUrl: 'https://github.com/SammarGaikwad/DevWeave.git',
@@ -442,6 +449,33 @@ describe('Predefined Pipeline Templates & CI/CD System Tests', () => {
       expect(script).toContain("dir('custom-backend') {\n                    sh 'npm ci --prefer-offline'\n                }");
       expect(script).toContain("dir('custom-backend') {\n                    sh 'npm run test:ci'\n                }");
       expect(script).toContain("dir('custom-backend') {\n                    sh 'npm run compile'\n                }");
+    });
+
+    it('should preserve behavior of other templates without regressions', () => {
+      const reactScript = generateJenkinsfile({
+        templateId: 'react-frontend-ci',
+        repositoryCloneUrl: 'https://github.com/SammarGaikwad/DevWeave.git',
+        branch: 'main',
+      });
+      expect(reactScript).toContain("stage('Run Type Checking')");
+      expect(reactScript).toContain("stage('Build Frontend')");
+
+      const dockerScript = generateJenkinsfile({
+        templateId: 'docker-build',
+        repositoryCloneUrl: 'https://github.com/SammarGaikwad/DevWeave.git',
+        branch: 'main',
+      });
+      expect(dockerScript).toContain("stage('Build Docker Image')");
+      expect(dockerScript).toContain("docker build -t devweave-app:build -f Dockerfile .");
+
+      const fullstackScript = generateJenkinsfile({
+        templateId: 'fullstack-ci-cd',
+        repositoryCloneUrl: 'https://github.com/SammarGaikwad/DevWeave.git',
+        branch: 'main',
+      });
+      expect(fullstackScript).toContain("stage('Run Available Tests')");
+      expect(fullstackScript).toContain("stage('Build Frontend')");
+      expect(fullstackScript).toContain("stage('Build Backend')");
     });
   });
 });

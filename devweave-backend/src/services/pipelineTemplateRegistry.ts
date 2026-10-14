@@ -50,7 +50,7 @@ export const PREDEFINED_TEMPLATES: Record<string, PipelineTemplate> = {
     configFields: [
       { key: 'rootDir', label: 'Root Directory', type: 'string', defaultValue: 'devweave-backend', required: false, description: 'Directory where backend package.json and package-lock.json are located (relative to repository root).' },
       { key: 'packageManager', label: 'Package Manager', type: 'select', defaultValue: 'npm', required: true, description: 'Package manager to use.', options: ['npm', 'yarn', 'pnpm'] },
-      { key: 'installCommand', label: 'Install Command', type: 'string', defaultValue: 'npm ci', required: false, description: 'Command to install project dependencies.' },
+      { key: 'installCommand', label: 'Install Command', type: 'string', defaultValue: 'npm ci --include=dev', required: false, description: 'Command to install project dependencies including development dependencies required for testing.' },
       { key: 'lintCommand', label: 'Lint Command', type: 'string', defaultValue: 'npm run lint --if-present', required: false, description: 'Command to run linting.' },
       { key: 'testCommand', label: 'Test Command', type: 'string', defaultValue: 'npm test --if-present', required: false, description: 'Command to run tests.' },
       { key: 'buildCommand', label: 'Build Command', type: 'string', defaultValue: 'npm run build', required: false, description: 'Command to compile or build backend.' },
@@ -188,7 +188,10 @@ export function generateJenkinsfile(params: {
       const rootDir = (!config.rootDir || config.rootDir === '.')
         ? 'devweave-backend'
         : sanitizeInput(config.rootDir, 'devweave-backend');
-      const installCmd = escapeGroovyString(sanitizeInput(config.installCommand, 'npm ci', true));
+      const rawInstall = (!config.installCommand || config.installCommand === 'npm ci')
+        ? 'npm ci --include=dev'
+        : config.installCommand;
+      const installCmd = escapeGroovyString(sanitizeInput(rawInstall, 'npm ci --include=dev', true));
       const lintCmd = escapeGroovyString(sanitizeInput(config.lintCommand, 'npm run lint --if-present', true));
       const testCmd = escapeGroovyString(sanitizeInput(config.testCommand, 'npm test --if-present', true));
       const buildCmd = escapeGroovyString(sanitizeInput(config.buildCommand, 'npm run build', true));
