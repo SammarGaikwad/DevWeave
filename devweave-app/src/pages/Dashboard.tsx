@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCw, Clock } from 'lucide-react';
 import { dashboardStatsData } from '../data/dashboardData';
+import { pipelineService, type BuildSummary } from '../services/pipelineService';
 import { DashboardStatCard } from '../components/dashboard/DashboardStatCard';
 import { EnvironmentSelector } from '../components/dashboard/EnvironmentSelector';
 import { SystemHealthBanner } from '../components/dashboard/SystemHealthBanner';
@@ -18,15 +19,34 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [selectedEnv, setSelectedEnv] = useState<EnvironmentFilter>('All Environments');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdatedText, setLastUpdatedText] = useState('Last updated 2 minutes ago');
+  const [lastUpdatedText, setLastUpdatedText] = useState('Loading live data...');
+  const [builds, setBuilds] = useState<BuildSummary[]>([]);
+  const [loadError, setLoadError] = useState('');
 
-  const handleRefresh = () => {
+  const loadDashboard = useCallback(async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
+    try {
+      const liveBuilds = await pipelineService.getPipelineBuilds();
+      setBuilds(liveBuilds);
+      setLoadError('');
+      setLastUpdatedText(`Last updated ${new Date().toLocaleTimeString()}`);
+    } catch {
+      setLoadError('Live Jenkins metrics are unavailable. Check your connection or sign in again.');
+      setLastUpdatedText('Live data unavailable');
+    } finally {
       setIsRefreshing(false);
-      setLastUpdatedText('Last updated just now');
-    }, 800);
-  };
+    }
+  }, []);
+
+  useEffect(() => { void loadDashboard(); }, [loadDashboard]);
+
+  const successfulBuilds = builds.filter((build) => build.status === 'SUCCESS').length;
+  const failedBuilds = builds.filter((build) => ['FAILURE', 'ABORTED', 'UNSTABLE'].includes(build.status)).length;
+  const runningBuilds = builds.filter((build) => build.status === 'BUILDING').length;
+  const liveStats = dashboardStatsData.map((stat) => stat.id === 'pipelines'
+    ? { ...stat, value: builds.length, description: `${successfulBuilds} successful, ${failedBuilds} failed${runningBuilds ? `, ${runningBuilds} running` : ''}` }
+    : stat);
+  const handleRefresh = () => { void loadDashboard(); };
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
@@ -69,12 +89,14 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {loadError && <div role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">{loadError}</div>}
+
       {/* 2. System Health Banner */}
       <SystemHealthBanner />
 
       {/* 3. Overview Statistics Grid (4 columns) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {dashboardStatsData.map((stat) => (
+        {liveStats.map((stat) => (
           <DashboardStatCard
             key={stat.id}
             title={stat.title}
@@ -88,7 +110,7 @@ export const Dashboard: React.FC = () => {
 
       {/* 4. Engineering Health Section (2 columns: CI/CD + Infrastructure) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <CICDHealthCard />
+        <CICDHealthCard builds={builds} />
         <InfrastructureHealthCard />
       </div>
 
