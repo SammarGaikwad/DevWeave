@@ -115,7 +115,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* 5. Deployment Activity (Full width) */}
-      <RecentDeploymentsCard />
+      <RecentDeploymentsCard builds={builds} />
 
       {/* 6. Activity & Repositories Section (2 columns) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
