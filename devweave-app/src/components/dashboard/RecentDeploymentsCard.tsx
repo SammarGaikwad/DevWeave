@@ -3,12 +3,21 @@ import { Rocket, GitBranch, ArrowUpRight, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { GlassCard } from '../ui/GlassCard';
 import { StatusBadge } from '../ui/StatusBadge';
-import { recentDeploymentsData } from '../../data/dashboardData';
+import type { BuildSummary } from '../../services/pipelineService';
 import type { DeploymentStatus } from '../../types/dashboard';
 import type { StatusType } from '../ui/StatusBadge';
 
-export const RecentDeploymentsCard: React.FC = () => {
+export const RecentDeploymentsCard: React.FC<{ builds: BuildSummary[] }> = ({ builds }) => {
   const navigate = useNavigate();
+  const recentRuns = builds.slice(0, 5).map((build) => ({
+    id: `build-${build.number}`,
+    application: 'DevWeave CI',
+    environment: 'Production' as const,
+    status: (build.status === 'SUCCESS' ? 'successful' : build.status === 'BUILDING' ? 'running' : ['FAILURE', 'UNSTABLE'].includes(build.status) ? 'failed' : 'pending') as DeploymentStatus,
+    branch: 'main',
+    time: new Date(build.timestamp).toLocaleString(),
+    commitHash: String(build.number),
+  }));
 
   const mapDeploymentStatus = (status: DeploymentStatus): StatusType => {
     switch (status) {
@@ -34,8 +43,8 @@ export const RecentDeploymentsCard: React.FC = () => {
             <Rocket className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-white">Recent Deployments</h3>
-            <p className="text-xs text-white/50">Production & staging release activity</p>
+            <h3 className="text-sm font-semibold text-white">Recent Pipeline Runs</h3>
+            <p className="text-xs text-white/50">Latest builds reported by Jenkins</p>
           </div>
         </div>
         <button
@@ -60,7 +69,7 @@ export const RecentDeploymentsCard: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-white/[0.04]">
-            {recentDeploymentsData.map((dep) => {
+            {recentRuns.length === 0 ? <tr><td colSpan={5} className="px-4 py-6 text-center text-white/40">No Jenkins builds available.</td></tr> : recentRuns.map((dep) => {
               const isFailed = dep.status === 'failed';
               return (
                 <tr
