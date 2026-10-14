@@ -1,13 +1,16 @@
 import React from 'react';
 import { Workflow, CheckCircle2, XCircle, PlayCircle } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
-import { cicdHealthData } from '../../data/dashboardData';
+import type { BuildSummary } from '../../services/pipelineService';
 
-export const CICDHealthCard: React.FC = () => {
-  const { successful, failed, running, total } = cicdHealthData;
-  const successPct = Math.round((successful / total) * 100);
-  const failedPct = Math.round((failed / total) * 100);
-  const runningPct = Math.round((running / total) * 100);
+export const CICDHealthCard: React.FC<{ builds: BuildSummary[] }> = ({ builds }) => {
+  const successful = builds.filter((build) => build.status === 'SUCCESS').length;
+  const failed = builds.filter((build) => ['FAILURE', 'ABORTED', 'UNSTABLE'].includes(build.status)).length;
+  const running = builds.filter((build) => build.status === 'BUILDING').length;
+  const total = builds.length;
+  const successPct = total ? Math.round((successful / total) * 100) : 0;
+  const failedPct = total ? Math.round((failed / total) * 100) : 0;
+  const runningPct = total ? Math.round((running / total) * 100) : 0;
 
   return (
     <GlassCard className="flex flex-col justify-between h-full space-y-4 border-white/[0.08]">
@@ -20,6 +23,8 @@ export const CICDHealthCard: React.FC = () => {
         </div>
         <span className="text-xs font-mono text-white/50">{total} Total Runs</span>
       </div>
+
+      {total === 0 ? <p className="text-xs text-white/45">No Jenkins build data is available yet.</p> : null}
 
       {/* Horizontal Stacked Bar */}
       <div className="space-y-2">
