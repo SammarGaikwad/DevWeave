@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { RefreshCw, Clock } from 'lucide-react';
 import { dashboardStatsData } from '../data/dashboardData';
 import { pipelineService, type BuildSummary } from '../services/pipelineService';
+import { githubService } from '../services/githubService';
+import type { Repository } from '../types/repository';
 import { DashboardStatCard } from '../components/dashboard/DashboardStatCard';
 import { EnvironmentSelector } from '../components/dashboard/EnvironmentSelector';
 import { SystemHealthBanner } from '../components/dashboard/SystemHealthBanner';
@@ -21,14 +23,27 @@ export const Dashboard: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdatedText, setLastUpdatedText] = useState('Loading live data...');
   const [builds, setBuilds] = useState<BuildSummary[]>([]);
+  const [repositories, setRepositories] = useState<Repository[]>([]);
+  const [repositoriesLoading, setRepositoriesLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
   const loadDashboard = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const liveBuilds = await pipelineService.getPipelineBuilds();
-      setBuilds(liveBuilds);
-      setLoadError('');
+      const [liveBuilds, liveRepositories] = await Promise.allSettled([
+        pipelineService.getPipelineBuilds(),
+        githubService.getRepositories(),
+      ]);
+      if (liveBuilds.status === 'fulfilled') setBuilds(liveBuilds.value);
+      if (liveRepositories.status === 'fulfilled') setRepositories(liveRepositories.value);
+      setRepositoriesLoading(false);
+      setLoadError(liveBuilds.status === 'rejected' && liveRepositories.status === 'rejected'
+        ? 'Live dashboard data is unavailable. Check your connection or sign in again.'
+        : liveBuilds.status === 'rejected'
+          ? 'Live Jenkins metrics are unavailable.'
+          : liveRepositories.status === 'rejected'
+            ? 'Connect GitHub or sign in again to load repository data.'
+            : '');
       setLastUpdatedText(`Last updated ${new Date().toLocaleTimeString()}`);
     } catch {
       setLoadError('Live Jenkins metrics are unavailable. Check your connection or sign in again.');
@@ -43,7 +58,9 @@ export const Dashboard: React.FC = () => {
   const successfulBuilds = builds.filter((build) => build.status === 'SUCCESS').length;
   const failedBuilds = builds.filter((build) => ['FAILURE', 'ABORTED', 'UNSTABLE'].includes(build.status)).length;
   const runningBuilds = builds.filter((build) => build.status === 'BUILDING').length;
-  const liveStats = dashboardStatsData.map((stat) => stat.id === 'pipelines'
+  const liveStats = dashboardStatsData.map((stat) => stat.id === 'repositories'
+    ? { ...stat, value: repositories.length, description: `${repositories.filter((r) => !r.archived).length} active, ${repositories.filter((r) => r.archived).length} archived` }
+    : stat.id === 'pipelines'
     ? { ...stat, value: builds.length, description: `${successfulBuilds} successful, ${failedBuilds} failed${runningBuilds ? `, ${runningBuilds} running` : ''}` }
     : stat);
   const handleRefresh = () => { void loadDashboard(); };
@@ -120,7 +137,7 @@ export const Dashboard: React.FC = () => {
       {/* 6. Activity & Repositories Section (2 columns) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RecentActivityCard />
-        <RecentRepositoriesCard />
+        <RecentRepositoriesCard repositories={repositories} isLoading={repositoriesLoading} />
       </div>
 
       {/* 7. Quick Actions & AI Insight Banner */}
