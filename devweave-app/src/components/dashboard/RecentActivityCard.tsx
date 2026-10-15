@@ -27,7 +27,7 @@ export const RecentActivityCard: React.FC = () => {
         </div>
         <div>
           <h3 className="text-sm font-semibold text-white">Recent Activity</h3>
-          <p className="text-xs text-white/50">Engineering events log</p>
+          <p className="text-xs text-white/50">Sample events · demo data</p>
         </div>
       </div>
 
