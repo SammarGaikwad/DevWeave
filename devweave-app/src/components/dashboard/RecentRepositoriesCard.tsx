@@ -2,9 +2,9 @@ import React from 'react';
 import { GitBranch, FolderGit2, ArrowUpRight, Lock, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { GlassCard } from '../ui/GlassCard';
-import { recentRepositoriesData } from '../../data/dashboardData';
+import type { Repository } from '../../types/repository';
 
-export const RecentRepositoriesCard: React.FC = () => {
+export const RecentRepositoriesCard: React.FC<{ repositories: Repository[]; isLoading?: boolean }> = ({ repositories, isLoading = false }) => {
   const navigate = useNavigate();
 
   return (
@@ -29,7 +29,7 @@ export const RecentRepositoriesCard: React.FC = () => {
       </div>
 
       <div className="space-y-2">
-        {recentRepositoriesData.map((repo) => (
+        {repositories.length === 0 ? <p className="py-4 text-xs text-white/45">{isLoading ? 'Loading connected repositories…' : 'No connected repositories found. Connect GitHub to see your repositories here.'}</p> : repositories.slice(0, 4).map((repo) => (
           <div
             key={repo.id}
             onClick={() => navigate('/repositories')}
@@ -37,7 +37,7 @@ export const RecentRepositoriesCard: React.FC = () => {
           >
             <div className="flex items-center gap-3">
               <div className="p-1.5 rounded-lg bg-white/[0.04] text-white/60 group-hover:text-blue-400 transition-colors">
-                {repo.visibility === 'private' ? (
+                {(repo.visibility === 'private' || repo.visibility === 'PRIVATE') ? (
                   <Lock className="h-3.5 w-3.5" />
                 ) : (
                   <Globe className="h-3.5 w-3.5" />
@@ -50,14 +50,14 @@ export const RecentRepositoriesCard: React.FC = () => {
                 <div className="flex items-center gap-2 text-[11px] text-white/40 font-mono">
                   <span className="inline-flex items-center gap-1">
                     <GitBranch className="h-3 w-3" />
-                    {repo.branch}
+                    {repo.defaultBranch || 'main'}
                   </span>
                 </div>
               </div>
             </div>
 
             <span className="text-[11px] font-mono text-white/40 group-hover:text-white/70 transition-colors">
-              {repo.updatedAt}
+              {repo.updatedAt ? new Date(repo.updatedAt).toLocaleDateString() : 'Updated date unavailable'}
             </span>
           </div>
         ))}
