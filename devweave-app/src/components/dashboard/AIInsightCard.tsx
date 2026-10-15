@@ -22,7 +22,7 @@ export const AIInsightCard: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-white/70 mt-0.5">
-              3 recent deployment events are available for automated root-cause analysis.
+              Demo insight placeholder. Live deployment events are not connected yet.
             </p>
           </div>
         </div>
