@@ -1,23 +1,31 @@
 import React from 'react';
-import { Activity, Rocket, Workflow, GitCommit, AlertTriangle } from 'lucide-react';
+import { Activity, Workflow, CheckCircle2, XCircle, PlayCircle } from 'lucide-react';
 import { GlassCard } from '../ui/GlassCard';
-import { recentActivityData } from '../../data/dashboardData';
+import type { BuildSummary } from '../../services/pipelineService';
 
-export const RecentActivityCard: React.FC = () => {
+export const RecentActivityCard: React.FC<{ builds: BuildSummary[] }> = ({ builds }) => {
   const getActivityIcon = (type: string) => {
     switch (type) {
-      case 'deployment':
-        return <Rocket className="h-3.5 w-3.5 text-blue-400" />;
-      case 'pipeline':
-        return <Workflow className="h-3.5 w-3.5 text-emerald-400" />;
-      case 'repository':
-        return <GitCommit className="h-3.5 w-3.5 text-purple-400" />;
-      case 'warning':
-        return <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />;
+      case 'success':
+        return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />;
+      case 'failed':
+        return <XCircle className="h-3.5 w-3.5 text-rose-400" />;
+      case 'running':
+        return <PlayCircle className="h-3.5 w-3.5 text-blue-400" />;
+      default:
+        return <Workflow className="h-3.5 w-3.5 text-white/50" />;
       default:
         return <Activity className="h-3.5 w-3.5 text-white/50" />;
     }
   };
+
+  const activities = builds.slice(0, 4).map((build) => ({
+    id: `build-${build.number}`,
+    type: build.status === 'SUCCESS' ? 'success' : ['FAILURE', 'UNSTABLE', 'ABORTED'].includes(build.status) ? 'failed' : build.status === 'BUILDING' ? 'running' : 'pipeline',
+    title: `Jenkins build #${build.number} ${build.status === 'SUCCESS' ? 'completed successfully' : build.status === 'BUILDING' ? 'is running' : build.status === 'FAILURE' || build.status === 'UNSTABLE' ? 'failed' : build.status.toLowerCase()}`,
+    timestamp: new Date(build.timestamp).toLocaleString(),
+    description: build.commitMessage || `Build duration: ${Math.round((build.duration || 0) / 1000)} seconds`,
+  }));
 
   return (
     <GlassCard className="flex flex-col justify-between h-full space-y-4 border-white/[0.08]">
@@ -27,12 +35,12 @@ export const RecentActivityCard: React.FC = () => {
         </div>
         <div>
           <h3 className="text-sm font-semibold text-white">Recent Activity</h3>
-          <p className="text-xs text-white/50">Sample events · demo data</p>
+          <p className="text-xs text-white/50">Latest Jenkins build events</p>
         </div>
       </div>
 
       <div className="relative space-y-4 pl-3 before:absolute before:left-5 before:top-2 before:bottom-2 before:w-px before:bg-white/[0.08]">
-        {recentActivityData.map((act) => (
+        {activities.length === 0 ? <p className="py-4 text-xs text-white/45">No Jenkins activity available yet.</p> : activities.map((act) => (
           <div key={act.id} className="relative flex items-start gap-3 group">
             {/* Timeline Dot Icon */}
             <div className="relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0a0a0a] border border-white/20 group-hover:border-white/40 transition-colors">
