@@ -7,6 +7,12 @@ import repositoryRoutes from './repositoryRoutes.js';
 import githubRoutes from './githubRoutes.js';
 import pipelineRoutes from './pipelineRoutes.js';
 import jenkinsRoutes from './jenkinsRoutes.js';
+import dockerRoutes from './dockerRoutes.js';
+import kubernetesRoutes from './kubernetesRoutes.js';
+import monitoringRoutes from './monitoringRoutes.js';
+import aiRoutes from './aiRoutes.js';
+import analyticsRoutes from './analyticsRoutes.js';
+import settingsRoutes from './settingsRoutes.js';
 import {
   getPipelineTemplates,
   getPipelineTemplateById,
@@ -28,6 +34,12 @@ router.use('/api/v1/repositories', repositoryRoutes);
 router.use('/api/v1/integrations/github', githubRoutes);
 router.use('/api/v1/pipelines', pipelineRoutes);
 router.use('/api/v1/jenkins', jenkinsRoutes);
+router.use('/api/v1/docker', dockerRoutes);
+router.use('/api/v1/kubernetes', kubernetesRoutes);
+router.use('/api/v1/monitoring', monitoringRoutes);
+router.use('/api/v1/ai', aiRoutes);
+router.use('/api/v1/analytics', analyticsRoutes);
+router.use('/api/v1/settings', settingsRoutes);
 
 // Dedicated REST routes for pipeline templates and runs
 const templateRouter = Router();
