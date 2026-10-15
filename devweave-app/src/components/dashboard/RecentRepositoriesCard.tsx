@@ -16,7 +16,7 @@ export const RecentRepositoriesCard: React.FC = () => {
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white">Recent Repositories</h3>
-            <p className="text-xs text-white/50">Active codebase branches</p>
+            <p className="text-xs text-white/50">Sample repositories · demo data</p>
           </div>
         </div>
         <button
