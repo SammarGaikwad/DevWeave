@@ -15,7 +15,7 @@ export const InfrastructureHealthCard: React.FC = () => {
           <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
             <Server className="h-4 w-4" />
           </div>
-          <h3 className="text-sm font-semibold text-white">Infrastructure Health</h3>
+          <div><h3 className="text-sm font-semibold text-white">Infrastructure Health</h3><p className="text-xs text-white/50">Illustrative status · demo data</p></div>
         </div>
         <button
           onClick={() => navigate('/kubernetes')}
