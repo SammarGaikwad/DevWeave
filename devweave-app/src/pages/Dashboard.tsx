@@ -143,7 +143,7 @@ export const Dashboard: React.FC = () => {
       {/* 7. Quick Actions & AI Insight Banner */}
       <div className="space-y-4 pt-2">
         <DashboardQuickActions />
-        <AIInsightCard />
+        <AIInsightCard builds={builds} />
       </div>
     </div>
   );
