@@ -14,8 +14,6 @@ export const RecentActivityCard: React.FC<{ builds: BuildSummary[] }> = ({ build
         return <PlayCircle className="h-3.5 w-3.5 text-blue-400" />;
       default:
         return <Workflow className="h-3.5 w-3.5 text-white/50" />;
-      default:
-        return <Activity className="h-3.5 w-3.5 text-white/50" />;
     }
   };
 
