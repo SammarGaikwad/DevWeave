@@ -136,7 +136,7 @@ export const Dashboard: React.FC = () => {
 
       {/* 6. Activity & Repositories Section (2 columns) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <RecentActivityCard />
+        <RecentActivityCard builds={builds} />
         <RecentRepositoriesCard repositories={repositories} isLoading={repositoriesLoading} />
       </div>
 
