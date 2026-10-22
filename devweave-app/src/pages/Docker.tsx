@@ -56,20 +56,53 @@ export const Docker: React.FC = () => {
 
   const fetchStatus = useCallback(async () => {
     setLoadingStatus(true);
+
     try {
-      const data = await dockerService.getStatus();
-      setStatus(data);
-    } catch {
+      const runner = await dockerService.getRunnerStatus();
+      const snapshot = runner.snapshot;
+
+      if (runner.online && snapshot) {
+        setStatus({
+          installed: true,
+          cliVersion: snapshot.dockerVersion,
+          daemonRunning: true,
+          serverVersion: snapshot.serverVersion,
+          containersRunning: snapshot.containersRunning,
+          containersTotal: snapshot.containersTotal,
+          imagesTotal: snapshot.imagesTotal,
+          status: 'CONNECTED',
+          message: `Windows Docker Desktop runner connected (${snapshot.runnerId}). Last report: ${snapshot.reportedAt}.`,
+          setupInstructions: [],
+        });
+      } else {
+        setStatus({
+          installed: false,
+          cliVersion: null,
+          daemonRunning: false,
+          serverVersion: null,
+          status: 'DAEMON_OFFLINE',
+          message: 'Windows Docker Desktop runner is offline or has not sent a heartbeat.',
+          setupInstructions: [
+            'Start Docker Desktop on your Windows PC.',
+            'Configure the runner with the backend URL and runner token.',
+            'Start the DevWeave Docker runner and check again.',
+          ],
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load Docker runner status', error);
+
       setStatus({
         installed: false,
         cliVersion: null,
         daemonRunning: false,
         serverVersion: null,
         status: 'DAEMON_OFFLINE',
-        message: 'Could not connect to backend Docker health probe.',
+        message: 'Could not retrieve Windows Docker runner status. Check backend authentication and connectivity.',
         setupInstructions: [
-          'Verify backend API server is running on port 8080',
-          'Ensure Docker Desktop daemon is started',
+          'Confirm the backend is running.',
+          'Sign in with a valid DevWeave application session.',
+          'Check the runner status API and try again.',
         ],
       });
     } finally {
@@ -189,19 +222,18 @@ export const Docker: React.FC = () => {
                 {status?.status === 'CONNECTED'
                   ? `Docker Engine ${status.serverVersion || ''}`
                   : status?.status === 'DAEMON_OFFLINE'
-                  ? 'Docker CLI Detected — Daemon Offline'
-                  : 'Docker Not Installed in PATH'}
+                    ? 'Docker CLI Detected — Daemon Offline'
+                    : 'Docker Not Installed in PATH'}
               </h3>
               <p className="text-xs text-white/60 leading-relaxed">{status?.message}</p>
             </div>
             <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-                status?.status === 'CONNECTED'
+              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${status?.status === 'CONNECTED'
                   ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                   : status?.status === 'DAEMON_OFFLINE'
-                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                  : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-              }`}
+                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                    : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                }`}
             >
               {status?.status === 'CONNECTED' ? (
                 <CheckCircle2 className="h-5 w-5" />
@@ -288,11 +320,10 @@ export const Docker: React.FC = () => {
       <div className="flex border-b border-white/[0.08] gap-4">
         <button
           onClick={() => setActiveTab('templates')}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'templates'
+          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${activeTab === 'templates'
               ? 'border-blue-500 text-white'
               : 'border-transparent text-white/60 hover:text-white'
-          }`}
+            }`}
         >
           <Layers className="h-4 w-4" />
           Predefined Blueprints ({templates.length})
@@ -302,22 +333,20 @@ export const Docker: React.FC = () => {
             setActiveTab('custom');
             if (!generatedDockerfile) void handleGenerateCustom();
           }}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'custom'
+          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${activeTab === 'custom'
               ? 'border-blue-500 text-white'
               : 'border-transparent text-white/60 hover:text-white'
-          }`}
+            }`}
         >
           <FileCode className="h-4 w-4" />
           Custom Generator
         </button>
         <button
           onClick={() => setActiveTab('compose')}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'compose'
+          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${activeTab === 'compose'
               ? 'border-blue-500 text-white'
               : 'border-transparent text-white/60 hover:text-white'
-          }`}
+            }`}
         >
           <FileText className="h-4 w-4" />
           Docker Compose Blueprint
@@ -336,11 +365,10 @@ export const Docker: React.FC = () => {
               <div
                 key={tpl.id}
                 onClick={() => setSelectedTemplateId(tpl.id)}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                  selectedTemplateId === tpl.id
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all ${selectedTemplateId === tpl.id
                     ? 'bg-blue-500/10 border-blue-500/30 text-white shadow-lg shadow-blue-500/5'
                     : 'bg-white/[0.02] border-white/[0.06] text-white/70 hover:bg-white/[0.05] hover:text-white'
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-semibold">{tpl.name}</h4>

@@ -51,7 +51,7 @@ app.use(
 app.use(cookieParser());
 
 // Body parsing
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // HTTP Request logging

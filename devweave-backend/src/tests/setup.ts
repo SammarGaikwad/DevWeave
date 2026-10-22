@@ -43,3 +43,8 @@ if (!process.env.JENKINS_URL) {
 if (!process.env.JENKINS_JOB_NAME) {
   process.env.JENKINS_JOB_NAME = 'DevWeave-CI-CD';
 }
+
+if (!process.env.DOCKER_RUNNER_TOKEN) {
+  process.env.DOCKER_RUNNER_TOKEN =
+    'devweave_test_docker_runner_token_only_123456';
+}

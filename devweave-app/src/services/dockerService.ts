@@ -62,4 +62,27 @@ export const dockerService = {
     );
     return res.data;
   },
+  async getRunnerStatus(): Promise<DockerRunnerStatus> {
+    const res = await apiClient.get<{
+      success: boolean;
+      data: DockerRunnerStatus;
+    }>('/v1/docker/runner/status');
+
+    return res.data;
+  },
 };
+
+export interface DockerRunnerStatus {
+  online: boolean;
+  lastHeartbeatAt: string | null;
+  snapshot: {
+    runnerId: string;
+    hostname: string;
+    dockerVersion: string | null;
+    serverVersion: string | null;
+    containersRunning: number;
+    containersTotal: number;
+    imagesTotal: number;
+    reportedAt: string;
+  } | null;
+}

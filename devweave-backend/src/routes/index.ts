@@ -13,6 +13,7 @@ import monitoringRoutes from './monitoringRoutes.js';
 import aiRoutes from './aiRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
 import settingsRoutes from './settingsRoutes.js';
+import dockerRunnerRoutes from './dockerRunnerRoutes.js';
 import {
   getPipelineTemplates,
   getPipelineTemplateById,
@@ -35,6 +36,7 @@ router.use('/api/v1/integrations/github', githubRoutes);
 router.use('/api/v1/pipelines', pipelineRoutes);
 router.use('/api/v1/jenkins', jenkinsRoutes);
 router.use('/api/v1/docker', dockerRoutes);
+router.use('/api/v1/docker/runner', dockerRunnerRoutes);
 router.use('/api/v1/kubernetes', kubernetesRoutes);
 router.use('/api/v1/monitoring', monitoringRoutes);
 router.use('/api/v1/ai', aiRoutes);
