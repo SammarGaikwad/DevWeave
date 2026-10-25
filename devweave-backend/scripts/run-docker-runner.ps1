@@ -8,6 +8,7 @@
 #>
 
 param(
+    [string]$Token = $env:DOCKER_RUNNER_TOKEN,
     [string]$BackendUrl = $env:DEVWEAVE_BACKEND_URL,
     [string]$RunnerId = $env:DOCKER_RUNNER_ID
 )
@@ -36,18 +37,47 @@ try {
 }
 
 # 2. Check Runner Token
+if ($Token) {
+    $env:DOCKER_RUNNER_TOKEN = $Token.Trim()
+}
+
+# Fallback: check .env file if token is not yet in environment
 if (-not $env:DOCKER_RUNNER_TOKEN) {
-    Write-Host "Enter DevWeave Docker Runner Token:" -ForegroundColor Yellow
+    $dotEnvPath = Join-Path $backendDir ".env"
+    if (Test-Path $dotEnvPath) {
+        $envMatch = Get-Content $dotEnvPath -ErrorAction SilentlyContinue |
+            Where-Object { $_ -match '^\s*DOCKER_RUNNER_TOKEN\s*=\s*(.+?)\s*$' } |
+            Select-Object -First 1
+        if ($envMatch -and ($envMatch -match '^\s*DOCKER_RUNNER_TOKEN\s*=\s*(.+?)\s*$')) {
+            $candidate = $Matches[1].Trim("'`"")
+            if ($candidate.Length -ge 32) {
+                $env:DOCKER_RUNNER_TOKEN = $candidate
+                Write-Host "[INFO] Loaded DOCKER_RUNNER_TOKEN from .env" -ForegroundColor Cyan
+            }
+        }
+    }
+}
+
+# Prompt interactively if still missing
+if (-not $env:DOCKER_RUNNER_TOKEN) {
+    Write-Host "Enter DevWeave Docker Runner Token (Right-click to paste in PowerShell console):" -ForegroundColor Yellow
     $secureToken = Read-Host -AsSecureString
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)
-    $env:DOCKER_RUNNER_TOKEN = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
-    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+
+    try {
+        $env:DOCKER_RUNNER_TOKEN = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        $secureToken.Dispose()
+    }
 }
 
 if (-not $env:DOCKER_RUNNER_TOKEN -or $env:DOCKER_RUNNER_TOKEN.Length -lt 32) {
     Write-Error "DOCKER_RUNNER_TOKEN must be at least 32 characters long."
     exit 1
 }
+
 
 # 3. Configure Runner ID and Backend URL
 if ($RunnerId) {
