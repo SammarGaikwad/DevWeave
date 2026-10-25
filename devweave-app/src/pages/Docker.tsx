@@ -14,6 +14,7 @@ import {
   Sliders,
   FileCode,
   FileText,
+  Sparkles,
 } from 'lucide-react';
 import { GlassCard } from '../components/ui/GlassCard';
 import { StatusBadge, type StatusType } from '../components/ui/StatusBadge';
@@ -23,17 +24,20 @@ import {
   type DockerTemplateSummary,
   type DockerTemplateDetail,
   type CustomDockerParams,
+  type DockerRunnerStatus,
 } from '../services/dockerService';
+import { OneClickDockerizer } from '../components/docker/OneClickDockerizer';
 
 export const Docker: React.FC = () => {
   const navigate = useNavigate();
   const [status, setStatus] = useState<DockerStatus | null>(null);
+  const [runnerStatus, setRunnerStatus] = useState<DockerRunnerStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [templates, setTemplates] = useState<DockerTemplateSummary[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('nodejs-express');
   const [activeTemplate, setActiveTemplate] = useState<DockerTemplateDetail | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
-  const [activeTab, setActiveTab] = useState<'templates' | 'custom' | 'compose'>('templates');
+  const [activeTab, setActiveTab] = useState<'dockerize' | 'templates' | 'custom' | 'compose'>('dockerize');
   const [copiedType, setCopiedType] = useState<string | null>(null);
 
   // Custom Generator State
@@ -59,6 +63,7 @@ export const Docker: React.FC = () => {
 
     try {
       const runner = await dockerService.getRunnerStatus();
+      setRunnerStatus(runner);
       const snapshot = runner.snapshot;
 
       if (runner.online && snapshot) {
@@ -317,10 +322,23 @@ export const Docker: React.FC = () => {
       </div>
 
       {/* 3. Navigation Tabs */}
-      <div className="flex border-b border-white/[0.08] gap-4">
+      <div className="flex border-b border-white/[0.08] gap-4 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('dockerize')}
+          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'dockerize'
+              ? 'border-indigo-500 text-white font-semibold'
+              : 'border-transparent text-white/60 hover:text-white'
+            }`}
+        >
+          <Sparkles className="h-4 w-4 text-indigo-400" />
+          <span>One-Click Dockerize</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30">
+            NEW
+          </span>
+        </button>
         <button
           onClick={() => setActiveTab('templates')}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${activeTab === 'templates'
+          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'templates'
               ? 'border-blue-500 text-white'
               : 'border-transparent text-white/60 hover:text-white'
             }`}
@@ -333,7 +351,7 @@ export const Docker: React.FC = () => {
             setActiveTab('custom');
             if (!generatedDockerfile) void handleGenerateCustom();
           }}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${activeTab === 'custom'
+          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'custom'
               ? 'border-blue-500 text-white'
               : 'border-transparent text-white/60 hover:text-white'
             }`}
@@ -343,7 +361,7 @@ export const Docker: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveTab('compose')}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${activeTab === 'compose'
+          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'compose'
               ? 'border-blue-500 text-white'
               : 'border-transparent text-white/60 hover:text-white'
             }`}
@@ -352,6 +370,14 @@ export const Docker: React.FC = () => {
           Docker Compose Blueprint
         </button>
       </div>
+
+      {/* Tab Content: One-Click Dockerize */}
+      {activeTab === 'dockerize' && (
+        <OneClickDockerizer
+          runnerStatus={runnerStatus}
+          onRefreshRunnerStatus={fetchStatus}
+        />
+      )}
 
       {/* 4. Tab Content: Predefined Templates */}
       {activeTab === 'templates' && (

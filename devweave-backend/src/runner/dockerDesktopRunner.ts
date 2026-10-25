@@ -7,6 +7,7 @@ import {
   dockerRunnerSnapshotSchema,
   type ValidatedDockerRunnerSnapshot,
 } from '../schemas/dockerRunnerSchema.js';
+import { pollForJob, executeBuildJob } from './dockerJobExecutor.js';
 
 // Load environment variables if running standalone
 dotenv.config();
@@ -198,6 +199,8 @@ export function startDockerRunner(
   deps?: {
     collectFn?: typeof collectDockerTelemetry;
     sendFn?: typeof sendHeartbeat;
+    pollJobFn?: typeof pollForJob;
+    executeJobFn?: typeof executeBuildJob;
     logger?: { info: (msg: string) => void; warn: (msg: string) => void; error: (msg: string) => void };
   },
 ): { stop: () => void } {
@@ -209,6 +212,8 @@ export function startDockerRunner(
 
   const collect = deps?.collectFn || collectDockerTelemetry;
   const send = deps?.sendFn || sendHeartbeat;
+  const pollJob = deps?.pollJobFn || pollForJob;
+  const executeJob = deps?.executeJobFn || executeBuildJob;
 
   logger.info(
     `Starting DevWeave Windows Docker Runner (${config.runnerId}) -> target: ${config.backendUrl} (interval: ${config.intervalMs / 1000}s)`,
@@ -236,6 +241,19 @@ export function startDockerRunner(
         logger.warn(
           `Heartbeat dispatch failed: ${res.error || `HTTP ${res.status}`}. Retrying in ${config.intervalMs / 1000}s...`,
         );
+      }
+
+      // Check for assigned Docker build jobs if Docker is available
+      if (dockerAvailable) {
+        try {
+          const job = await pollJob(config);
+          if (job && !isStopped) {
+            logger.info(`Assigned build job claimed: ${job.id} (${job.imageTag})`);
+            await executeJob(job, config, logger);
+          }
+        } catch (jobErr) {
+          logger.warn(`Job execution warning: ${jobErr}`);
+        }
       }
     } catch (error) {
       if (isStopped) return;

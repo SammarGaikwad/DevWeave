@@ -55,3 +55,102 @@ export function readDockerRunnerStatus(
     data: getRunnerSnapshot(),
   });
 }
+
+import {
+  leaseNextQueuedJob,
+  appendJobLogs,
+  completeBuildJob,
+  getBuildJobById,
+} from '../services/dockerBuildJobService.js';
+import { streamJobArchive } from '../services/dockerArchiveService.js';
+
+export function pollRunnerJob(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  try {
+    const runnerId = (req.body?.runnerId as string) || env.DOCKER_RUNNER_ID || 'windows-docker-runner';
+    const job = leaseNextQueuedJob(runnerId);
+
+    res.status(200).json({
+      success: true,
+      data: job ? {
+        id: job.id,
+        repoFullName: job.repoFullName,
+        branch: job.branch,
+        imageTag: job.imageTag,
+        dockerfile: job.dockerfile,
+        dockerignore: job.dockerignore,
+        composeFile: job.composeFile,
+        timeoutSeconds: 300,
+      } : null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function downloadJobArchive(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { id } = req.params;
+    const job = getBuildJobById(id);
+
+    await streamJobArchive(job, res);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function appendRunnerJobLogs(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  try {
+    const { id } = req.params;
+    const runnerId = (req.body?.runnerId as string) || env.DOCKER_RUNNER_ID || 'windows-docker-runner';
+    const logs = Array.isArray(req.body?.logs) ? req.body.logs : [];
+
+    const result = appendJobLogs(id, runnerId, logs);
+
+    res.status(200).json({
+      success: true,
+      cancelRequested: result.cancelRequested,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function completeRunnerJob(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  try {
+    const { id } = req.params;
+    const runnerId = (req.body?.runnerId as string) || env.DOCKER_RUNNER_ID || 'windows-docker-runner';
+    const { success, imageId, imageSize, error, durationMs } = req.body;
+
+    const job = completeBuildJob(id, runnerId, {
+      success: Boolean(success),
+      imageId,
+      imageSize,
+      error,
+      durationMs,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: job,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
