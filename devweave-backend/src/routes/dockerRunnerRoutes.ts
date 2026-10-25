@@ -11,6 +11,7 @@ import {
   downloadJobArchive,
   appendRunnerJobLogs,
   completeRunnerJob,
+  receiveRunnerInventory,
 } from '../controllers/dockerRunnerController.js';
 
 const router = Router();
@@ -20,6 +21,12 @@ router.post(
   dockerRunnerRateLimiter,
   authenticateDockerRunner,
   receiveDockerRunnerHeartbeat,
+);
+
+router.post(
+  '/inventory',
+  authenticateDockerRunner,
+  receiveRunnerInventory,
 );
 
 router.get(

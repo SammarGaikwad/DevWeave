@@ -5,6 +5,8 @@ import {
   sendHeartbeat,
   startDockerRunner,
 } from '../runner/dockerDesktopRunner.js';
+import { pollForJob, executeBuildJob } from '../runner/dockerJobExecutor.js';
+import { executeManagementJob } from '../runner/dockerManagementExecutor.js';
 
 describe('Docker Desktop Runner Module', () => {
   describe('loadRunnerConfig', () => {
@@ -616,6 +618,641 @@ describe('Docker Desktop Runner Module', () => {
         (call) => call[0] === 'Docker Runner stopped gracefully.',
       );
       expect(stopLogs).toHaveLength(1);
+    });
+  });
+
+  describe('dockerJobExecutor: pollForJob & executeBuildJob', () => {
+    const config = {
+      runnerId: 'windows-docker-runner',
+      backendUrl: 'https://devweave-api.test',
+      runnerToken: 'runner-test-token-12345678901234567890',
+      intervalMs: 10000,
+      timeoutMs: 8000,
+    };
+
+    it('successfully parses and claims job when available', async () => {
+      const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+      const mockPayload = {
+        id: 'job-123',
+        repoFullName: 'owner/repo',
+        branch: 'main',
+        imageTag: 'repo:v1',
+        dockerfile: 'FROM alpine',
+        dockerignore: '.git',
+        timeoutSeconds: 300,
+      };
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: mockPayload }),
+      });
+
+      const job = await pollForJob(config, {
+        logger: mockLogger,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
+
+      expect(job).toEqual(mockPayload);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining('[Job Poll] Claimed build job: job-123 (repo:v1)')
+      );
+    });
+
+    it('returns null and logs when no jobs are available', async () => {
+      const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: null }),
+      });
+
+      const job = await pollForJob(config, {
+        logger: mockLogger,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
+
+      expect(job).toBeNull();
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        '[Job Poll] No queued build jobs available.'
+      );
+    });
+
+    it('logs warning on non-200 HTTP response and does not leak token', async () => {
+      const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+      });
+
+      const job = await pollForJob(config, {
+        logger: mockLogger,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
+
+      expect(job).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('HTTP 401 (Unauthorized)')
+      );
+      // Ensure token is never in log output
+      for (const call of mockLogger.warn.mock.calls) {
+        expect(call[0]).not.toContain(config.runnerToken);
+      }
+    });
+
+    it('handles request timeout (AbortError) safely', async () => {
+      const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+      const abortError = new Error('The operation was aborted');
+      abortError.name = 'AbortError';
+
+      const mockFetch = vi.fn().mockRejectedValue(abortError);
+
+      const job = await pollForJob(config, {
+        logger: mockLogger,
+        fetchFn: mockFetch as unknown as typeof fetch,
+        timeoutMs: 100,
+      });
+
+      expect(job).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Request timed out after 100ms')
+      );
+    });
+
+    it('rejects malformed poll response schema safely', async () => {
+      const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: { invalidKey: 123 } }),
+      });
+
+      const job = await pollForJob(config, {
+        logger: mockLogger,
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
+
+      expect(job).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('invalid job poll response schema')
+      );
+    });
+
+    it('aborts build and reports failure if archive download fails before docker build', async () => {
+      const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+      const completedCalls: any[] = [];
+
+      const mockFetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/archive')) {
+          return { ok: false, status: 502, statusText: 'Bad Gateway' };
+        }
+        if (url.includes('/logs')) {
+          return { ok: true, json: async () => ({ success: true }) };
+        }
+        if (url.includes('/complete')) {
+          return {
+            ok: true,
+            json: async () => {
+              completedCalls.push(JSON.parse(mockFetch.mock.calls.at(-1)?.[1]?.body || '{}'));
+              return { success: true };
+            },
+          };
+        }
+        return { ok: true };
+      });
+
+      await executeBuildJob(
+        {
+          id: 'fail-job-1',
+          repoFullName: 'owner/repo',
+          branch: 'main',
+          imageTag: 'fail-img:v1',
+          dockerfile: 'FROM alpine',
+          dockerignore: '',
+          timeoutSeconds: 300,
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to download repository source archive (HTTP 502: Bad Gateway)')
+      );
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/complete'),
+        expect.objectContaining({
+          body: expect.stringContaining('"success":false'),
+        })
+      );
+    });
+  });
+
+  describe('dockerManagementExecutor: Resource Protection & Execution Safety', () => {
+    const config = {
+      runnerId: 'windows-docker-runner',
+      backendUrl: 'https://devweave-api.test',
+      runnerToken: 'runner-test-token-12345678901234567890',
+      intervalMs: 10000,
+      timeoutMs: 8000,
+    };
+
+    const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+    const createMockDockerExec = () => {
+      const executedCommands: string[][] = [];
+      const mockExec = vi.fn().mockImplementation(async (args: string[]) => {
+        executedCommands.push(args);
+        const cmdStr = args.join(' ');
+
+        if (cmdStr.startsWith('ps -a')) {
+          return {
+            stdout: [
+              JSON.stringify({
+                ID: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+                Names: '/smart_review_backend_api',
+                Image: 'smart-review-analytics:latest',
+                State: 'running',
+              }),
+              JSON.stringify({
+                ID: 'f4c1d2e3b4a567890123456789abcdef0123456789abcdef0123456789abcdef',
+                Names: '/smart_review_analytics_engine',
+                Image: 'sha256:dangling00000000000000000000000000000000000000000000000000000000',
+                State: 'running',
+              }),
+              JSON.stringify({
+                ID: 'a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef',
+                Names: '/jenkins',
+                Image: 'jenkins/jenkins:lts',
+                State: 'running',
+              }),
+              JSON.stringify({
+                ID: 'd9e8f7a6b5c41111111111abcdef1234567890abcdef1234567890abcdef',
+                Names: '/user-app-one',
+                Image: 'user-app:1.0',
+                State: 'running',
+              }),
+              JSON.stringify({
+                ID: 'd9e8f7a6b5c42222222222abcdef1234567890abcdef1234567890abcdef',
+                Names: '/user-app-two',
+                Image: 'user-app:2.0',
+                State: 'exited',
+              }),
+            ].join('\n'),
+            stderr: '',
+          };
+        }
+
+        if (cmdStr.startsWith('images')) {
+          return {
+            stdout: [
+              JSON.stringify({
+                ID: 'sha256:0a620eef77501234567890abcdef1234567890abcdef1234567890abcdef',
+                Repository: 'smart-review-analytics',
+                Tag: 'latest',
+              }),
+              JSON.stringify({
+                ID: 'sha256:2c842aa199721234567890abcdef1234567890abcdef1234567890abcdef',
+                Repository: 'jenkins/jenkins',
+                Tag: 'lts',
+              }),
+              JSON.stringify({
+                ID: 'sha256:dangling00000000000000000000000000000000000000000000000000000000',
+                Repository: '<none>',
+                Tag: '<none>',
+              }),
+              JSON.stringify({
+                ID: 'sha256:3d953bb2aa831234567890abcdef1234567890abcdef1234567890abcdef',
+                Repository: 'user-app',
+                Tag: '1.0',
+              }),
+            ].join('\n'),
+            stderr: '',
+          };
+        }
+
+        if (cmdStr.startsWith('network ls')) {
+          return {
+            stdout: [
+              JSON.stringify({
+                ID: '1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff',
+                Name: 'bridge',
+                Driver: 'bridge',
+              }),
+              JSON.stringify({
+                ID: '222233334444555566667777888899990000aaaabbbbccccddddeeeeffff1111',
+                Name: 'smart-review-analytics_smart_review_network',
+                Driver: 'bridge',
+              }),
+              JSON.stringify({
+                ID: '33334444555566667777888899990000aaaabbbbccccddddeeeeffff22223333',
+                Name: 'user-network',
+                Driver: 'bridge',
+              }),
+            ].join('\n'),
+            stderr: '',
+          };
+        }
+
+        if (cmdStr.startsWith('volume ls')) {
+          return {
+            stdout: [
+              JSON.stringify({ Name: 'jenkins_home', Driver: 'local' }),
+              JSON.stringify({ Name: 'user-vol', Driver: 'local' }),
+            ].join('\n'),
+            stderr: '',
+          };
+        }
+
+        if (cmdStr.startsWith('inspect')) {
+          return {
+            stdout: JSON.stringify([
+              {
+                Id: 'd9e8f7a6b5c41111111111abcdef1234567890abcdef1234567890abcdef',
+                Name: '/user-app-one',
+                Config: { Image: 'user-app:1.0' },
+                HostConfig: { RestartPolicy: { Name: 'unless-stopped' }, NetworkMode: 'bridge' },
+              },
+            ]),
+            stderr: '',
+          };
+        }
+
+        return { stdout: 'mock-output', stderr: '' };
+      });
+
+      return { mockExec, executedCommands };
+    };
+
+    it('runner blocks stopping protected container targeted by name or ID prefix', async () => {
+      const { mockExec, executedCommands } = createMockDockerExec();
+      let reportedPayload: any = null;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+        if (url.includes('/complete')) {
+          reportedPayload = JSON.parse(opts.body);
+        }
+        return { ok: true, json: async () => ({ success: true }) };
+      });
+
+      // Stop by name
+      await executeManagementJob(
+        { id: 'job-p1', jobType: 'MANAGEMENT', actionType: 'CONTAINER_STOP', params: { containerId: 'jenkins' } },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/Execution blocked: Container 'jenkins' is a protected production resource/);
+      expect(executedCommands.some((c) => c[0] === 'stop')).toBe(false);
+
+      // Stop by ID prefix
+      await executeManagementJob(
+        { id: 'job-p2', jobType: 'MANAGEMENT', actionType: 'CONTAINER_STOP', params: { containerId: 'e3b0c44298fc' } },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/protected production resource/);
+      expect(executedCommands.some((c) => c[0] === 'stop')).toBe(false);
+    });
+
+    it('runner blocks network disconnect targeting protected container', async () => {
+      const { mockExec, executedCommands } = createMockDockerExec();
+      let reportedPayload: any = null;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+        if (url.includes('/complete')) {
+          reportedPayload = JSON.parse(opts.body);
+        }
+        return { ok: true, json: async () => ({ success: true }) };
+      });
+
+      await executeManagementJob(
+        {
+          id: 'job-net-disc',
+          jobType: 'MANAGEMENT',
+          actionType: 'NETWORK_DISCONNECT',
+          params: { networkIdOrName: 'user-network', containerId: 'jenkins' },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/protected production resource/);
+      expect(executedCommands.some((c) => c[0] === 'network' && c[1] === 'disconnect')).toBe(false);
+    });
+
+    it('runner blocks recreate targeting protected container or hijacking protected name', async () => {
+      const { mockExec, executedCommands } = createMockDockerExec();
+      let reportedPayload: any = null;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+        if (url.includes('/complete')) {
+          reportedPayload = JSON.parse(opts.body);
+        }
+        return { ok: true, json: async () => ({ success: true }) };
+      });
+
+      // Target jenkins
+      await executeManagementJob(
+        {
+          id: 'job-recreate-1',
+          jobType: 'MANAGEMENT',
+          actionType: 'CONTAINER_RECREATE',
+          params: { containerId: 'jenkins' },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/protected production resource/);
+
+      // Recreate user container but renaming to smart_review_backend_api
+      await executeManagementJob(
+        {
+          id: 'job-recreate-2',
+          jobType: 'MANAGEMENT',
+          actionType: 'CONTAINER_RECREATE',
+          params: { containerId: 'd9e8f7a6b5c41111', name: 'smart_review_backend_api' },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/protected/);
+      expect(executedCommands.some((c) => c[0] === 'rm')).toBe(false);
+    });
+
+    it('runner blocks protected network and volume deletions', async () => {
+      const { mockExec, executedCommands } = createMockDockerExec();
+      let reportedPayload: any = null;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+        if (url.includes('/complete')) {
+          reportedPayload = JSON.parse(opts.body);
+        }
+        return { ok: true, json: async () => ({ success: true }) };
+      });
+
+      // Protected network delete
+      await executeManagementJob(
+        {
+          id: 'job-net-del',
+          jobType: 'MANAGEMENT',
+          actionType: 'NETWORK_DELETE',
+          params: { networkIdOrName: 'smart-review-analytics_smart_review_network' },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/protected system network/);
+      expect(executedCommands.some((c) => c[0] === 'network' && c[1] === 'rm')).toBe(false);
+
+      // Protected volume delete
+      await executeManagementJob(
+        {
+          id: 'job-vol-del',
+          jobType: 'MANAGEMENT',
+          actionType: 'VOLUME_DELETE',
+          params: { volumeName: 'jenkins_home' },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/protected persistent volume/);
+      expect(executedCommands.some((c) => c[0] === 'volume' && c[1] === 'rm')).toBe(false);
+    });
+
+    it('runner blocks protected image delete and prune when protected containers are affected', async () => {
+      const { mockExec, executedCommands } = createMockDockerExec();
+      let reportedPayload: any = null;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+        if (url.includes('/complete')) {
+          reportedPayload = JSON.parse(opts.body);
+        }
+        return { ok: true, json: async () => ({ success: true }) };
+      });
+
+      // Delete protected family image
+      await executeManagementJob(
+        {
+          id: 'job-img-del-1',
+          jobType: 'MANAGEMENT',
+          actionType: 'IMAGE_DELETE',
+          params: { imageIdOrTag: 'jenkins/jenkins:lts' },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/protected/);
+      expect(executedCommands.some((c) => c[0] === 'rmi')).toBe(false);
+
+      // Prune when dangling image is in use by smart_review_backend_api
+      await executeManagementJob(
+        {
+          id: 'job-img-prune',
+          jobType: 'MANAGEMENT',
+          actionType: 'IMAGE_PRUNE_DANGLING',
+          params: {},
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/protected/);
+      expect(executedCommands.some((c) => c[0] === 'image' && c[1] === 'prune')).toBe(false);
+    });
+
+    it('runner rejects operations on ambiguous container prefix or daemon failure', async () => {
+      const { mockExec } = createMockDockerExec();
+      let reportedPayload: any = null;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+        if (url.includes('/complete')) {
+          reportedPayload = JSON.parse(opts.body);
+        }
+        return { ok: true, json: async () => ({ success: true }) };
+      });
+
+      // Ambiguous prefix 'd9e8f7a6' matching both user-app-one and user-app-two
+      await executeManagementJob(
+        {
+          id: 'job-ambig',
+          jobType: 'MANAGEMENT',
+          actionType: 'CONTAINER_STOP',
+          params: { containerId: 'd9e8f7a6' },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/Ambiguous container identifier/);
+
+      // Daemon failure
+      const failingMockExec = vi.fn().mockRejectedValue(new Error('error connect daemon offline'));
+      await executeManagementJob(
+        {
+          id: 'job-fail',
+          jobType: 'MANAGEMENT',
+          actionType: 'CONTAINER_STOP',
+          params: { containerId: 'user-app-one' },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        failingMockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/Docker daemon inventory lookup failed/);
+    });
+
+    it('runner executes destructive operations on ordinary user resources', async () => {
+      const { mockExec, executedCommands } = createMockDockerExec();
+      let reportedPayload: any = null;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+        if (url.includes('/complete')) {
+          reportedPayload = JSON.parse(opts.body);
+        }
+        return { ok: true, json: async () => ({ success: true }) };
+      });
+
+      // Stop user container
+      await executeManagementJob(
+        {
+          id: 'job-user-stop',
+          jobType: 'MANAGEMENT',
+          actionType: 'CONTAINER_STOP',
+          params: { containerId: 'user-app-one', timeoutSeconds: 5 },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(true);
+      expect(executedCommands.some((c) => c[0] === 'stop' && c.includes('user-app-one'))).toBe(true);
+
+      // Delete user container
+      await executeManagementJob(
+        {
+          id: 'job-user-del',
+          jobType: 'MANAGEMENT',
+          actionType: 'CONTAINER_DELETE',
+          params: { containerId: 'user-app-one' },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(true);
+      expect(executedCommands.some((c) => c[0] === 'rm' && c.includes('user-app-one'))).toBe(true);
+
+      // Delete user network
+      await executeManagementJob(
+        {
+          id: 'job-user-net',
+          jobType: 'MANAGEMENT',
+          actionType: 'NETWORK_DELETE',
+          params: { networkIdOrName: 'user-network' },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(true);
+      expect(executedCommands.some((c) => c[0] === 'network' && c[1] === 'rm' && c.includes('user-network'))).toBe(true);
+
+      // Delete user volume
+      await executeManagementJob(
+        {
+          id: 'job-user-vol',
+          jobType: 'MANAGEMENT',
+          actionType: 'VOLUME_DELETE',
+          params: { volumeName: 'user-vol' },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(true);
+      expect(executedCommands.some((c) => c[0] === 'volume' && c[1] === 'rm' && c.includes('user-vol'))).toBe(true);
     });
   });
 });

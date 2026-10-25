@@ -15,6 +15,10 @@ import {
   FileCode,
   FileText,
   Sparkles,
+  Network,
+  HardDrive,
+  Activity,
+  Boxes,
 } from 'lucide-react';
 import { GlassCard } from '../components/ui/GlassCard';
 import { StatusBadge, type StatusType } from '../components/ui/StatusBadge';
@@ -25,8 +29,15 @@ import {
   type DockerTemplateDetail,
   type CustomDockerParams,
   type DockerRunnerStatus,
+  type DockerInventorySnapshot,
+  type DockerAuditEvent,
 } from '../services/dockerService';
 import { OneClickDockerizer } from '../components/docker/OneClickDockerizer';
+import { DockerContainersManager } from '../components/docker/DockerContainersManager';
+import { DockerImagesManager } from '../components/docker/DockerImagesManager';
+import { DockerNetworksManager } from '../components/docker/DockerNetworksManager';
+import { DockerVolumesManager } from '../components/docker/DockerVolumesManager';
+import { DockerEventsManager } from '../components/docker/DockerEventsManager';
 
 export const Docker: React.FC = () => {
   const navigate = useNavigate();
@@ -37,8 +48,16 @@ export const Docker: React.FC = () => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('nodejs-express');
   const [activeTemplate, setActiveTemplate] = useState<DockerTemplateDetail | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dockerize' | 'templates' | 'custom' | 'compose'>('dockerize');
+  const [activeTab, setActiveTab] = useState<
+    'containers' | 'images' | 'networks' | 'volumes' | 'dockerize' | 'events' | 'templates' | 'custom' | 'compose'
+  >('containers');
   const [copiedType, setCopiedType] = useState<string | null>(null);
+
+  // Manage Docker State
+  const [inventory, setInventory] = useState<DockerInventorySnapshot | null>(null);
+  const [auditEvents, setAuditEvents] = useState<DockerAuditEvent[]>([]);
+  const [loadingInventory, setLoadingInventory] = useState(false);
+  const [loadingEvents, setLoadingEvents] = useState(false);
 
   // Custom Generator State
   const [customParams, setCustomParams] = useState<CustomDockerParams>({
@@ -139,10 +158,44 @@ export const Docker: React.FC = () => {
     }
   }, []);
 
+  const fetchInventory = useCallback(async () => {
+    setLoadingInventory(true);
+    try {
+      const data = await dockerService.getInventory();
+      setInventory(data);
+    } catch (err) {
+      console.error('Failed to load Docker inventory', err);
+    } finally {
+      setLoadingInventory(false);
+    }
+  }, []);
+
+  const fetchEvents = useCallback(async () => {
+    setLoadingEvents(true);
+    try {
+      const data = await dockerService.getAuditLogs(50);
+      setAuditEvents(data);
+    } catch (err) {
+      console.error('Failed to load Docker audit logs', err);
+    } finally {
+      setLoadingEvents(false);
+    }
+  }, []);
+
   useEffect(() => {
     void fetchStatus();
     void fetchTemplates();
-  }, [fetchStatus, fetchTemplates]);
+    void fetchInventory();
+    void fetchEvents();
+
+    const interval = setInterval(() => {
+      void fetchStatus();
+      void fetchInventory();
+      void fetchEvents();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [fetchStatus, fetchTemplates, fetchInventory, fetchEvents]);
 
   useEffect(() => {
     if (selectedTemplateId) {
@@ -197,11 +250,15 @@ export const Docker: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => void fetchStatus()}
-            disabled={loadingStatus}
+            onClick={() => {
+              void fetchStatus();
+              void fetchInventory();
+              void fetchEvents();
+            }}
+            disabled={loadingStatus || loadingInventory}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white/80 hover:text-white hover:bg-white/[0.08] text-xs font-medium transition-all disabled:opacity-50"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${loadingStatus ? 'animate-spin text-blue-400' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${loadingStatus || loadingInventory ? 'animate-spin text-blue-400' : ''}`} />
             <span>Check Daemon</span>
           </button>
           <button
@@ -322,13 +379,74 @@ export const Docker: React.FC = () => {
       </div>
 
       {/* 3. Navigation Tabs */}
-      <div className="flex border-b border-white/[0.08] gap-4 overflow-x-auto">
+      <div className="flex border-b border-white/[0.08] gap-2 overflow-x-auto pb-1">
+        <button
+          onClick={() => setActiveTab('containers')}
+          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'containers'
+              ? 'border-blue-500 text-white font-semibold'
+              : 'border-transparent text-white/60 hover:text-white'
+          }`}
+        >
+          <Boxes className="h-4 w-4 text-blue-400" />
+          <span>Containers</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30">
+            {inventory?.containers.length ?? 0}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('images')}
+          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'images'
+              ? 'border-blue-500 text-white font-semibold'
+              : 'border-transparent text-white/60 hover:text-white'
+          }`}
+        >
+          <Layers className="h-4 w-4 text-cyan-400" />
+          <span>Images</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+            {inventory?.images.length ?? 0}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('networks')}
+          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'networks'
+              ? 'border-purple-500 text-white font-semibold'
+              : 'border-transparent text-white/60 hover:text-white'
+          }`}
+        >
+          <Network className="h-4 w-4 text-purple-400" />
+          <span>Networks</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
+            {inventory?.networks.length ?? 0}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('volumes')}
+          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'volumes'
+              ? 'border-emerald-500 text-white font-semibold'
+              : 'border-transparent text-white/60 hover:text-white'
+          }`}
+        >
+          <HardDrive className="h-4 w-4 text-emerald-400" />
+          <span>Volumes</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+            {inventory?.volumes.length ?? 0}
+          </span>
+        </button>
+
         <button
           onClick={() => setActiveTab('dockerize')}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'dockerize'
+          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'dockerize'
               ? 'border-indigo-500 text-white font-semibold'
               : 'border-transparent text-white/60 hover:text-white'
-            }`}
+          }`}
         >
           <Sparkles className="h-4 w-4 text-indigo-400" />
           <span>One-Click Dockerize</span>
@@ -336,40 +454,131 @@ export const Docker: React.FC = () => {
             NEW
           </span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('events')}
+          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'events'
+              ? 'border-amber-500 text-white font-semibold'
+              : 'border-transparent text-white/60 hover:text-white'
+          }`}
+        >
+          <Activity className="h-4 w-4 text-amber-400" />
+          <span>Activity Log</span>
+          {auditEvents.length > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+              {auditEvents.length}
+            </span>
+          )}
+        </button>
+
         <button
           onClick={() => setActiveTab('templates')}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'templates'
+          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'templates'
               ? 'border-blue-500 text-white'
               : 'border-transparent text-white/60 hover:text-white'
-            }`}
+          }`}
         >
           <Layers className="h-4 w-4" />
-          Predefined Blueprints ({templates.length})
+          <span>Blueprints ({templates.length})</span>
         </button>
+
         <button
           onClick={() => {
             setActiveTab('custom');
             if (!generatedDockerfile) void handleGenerateCustom();
           }}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'custom'
+          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'custom'
               ? 'border-blue-500 text-white'
               : 'border-transparent text-white/60 hover:text-white'
-            }`}
+          }`}
         >
           <FileCode className="h-4 w-4" />
-          Custom Generator
+          <span>Custom Generator</span>
         </button>
+
         <button
           onClick={() => setActiveTab('compose')}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'compose'
+          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'compose'
               ? 'border-blue-500 text-white'
               : 'border-transparent text-white/60 hover:text-white'
-            }`}
+          }`}
         >
           <FileText className="h-4 w-4" />
-          Docker Compose Blueprint
+          <span>Compose</span>
         </button>
       </div>
+
+      {/* Tab Content: Containers */}
+      {activeTab === 'containers' && (
+        <DockerContainersManager
+          containers={inventory?.containers || []}
+          availableImages={(inventory?.images || [])
+            .filter((img) => !img.isDangling)
+            .map((img) =>
+              img.repository !== '<none>' && img.tag !== '<none>'
+                ? `${img.repository}:${img.tag}`
+                : img.repository
+            )
+            .filter(Boolean)}
+          runnerOnline={runnerStatus?.online ?? false}
+          onRefresh={() => {
+            void fetchInventory();
+            void fetchEvents();
+          }}
+          onNavigateToBuilds={() => setActiveTab('dockerize')}
+        />
+      )}
+
+      {/* Tab Content: Images */}
+      {activeTab === 'images' && (
+        <DockerImagesManager
+          images={inventory?.images || []}
+          runnerOnline={runnerStatus?.online ?? false}
+          onRefresh={() => {
+            void fetchInventory();
+            void fetchEvents();
+          }}
+          onNavigateToDockerizer={() => setActiveTab('dockerize')}
+        />
+      )}
+
+      {/* Tab Content: Networks */}
+      {activeTab === 'networks' && (
+        <DockerNetworksManager
+          networks={inventory?.networks || []}
+          containers={inventory?.containers || []}
+          runnerOnline={runnerStatus?.online ?? false}
+          onRefresh={() => {
+            void fetchInventory();
+            void fetchEvents();
+          }}
+        />
+      )}
+
+      {/* Tab Content: Volumes */}
+      {activeTab === 'volumes' && (
+        <DockerVolumesManager
+          volumes={inventory?.volumes || []}
+          runnerOnline={runnerStatus?.online ?? false}
+          onRefresh={() => {
+            void fetchInventory();
+            void fetchEvents();
+          }}
+        />
+      )}
+
+      {/* Tab Content: Events / Activity */}
+      {activeTab === 'events' && (
+        <DockerEventsManager
+          events={auditEvents}
+          loading={loadingEvents}
+          onRefresh={() => void fetchEvents()}
+        />
+      )}
 
       {/* Tab Content: One-Click Dockerize */}
       {activeTab === 'dockerize' && (

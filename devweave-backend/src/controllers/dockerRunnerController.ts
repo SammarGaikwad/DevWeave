@@ -63,6 +63,11 @@ import {
   getBuildJobById,
 } from '../services/dockerBuildJobService.js';
 import { streamJobArchive } from '../services/dockerArchiveService.js';
+import {
+  leaseNextManagementJob,
+  completeManagementJob,
+  updateInventorySnapshot,
+} from '../services/dockerManagementService.js';
 
 export function pollRunnerJob(
   req: Request,
@@ -71,12 +76,38 @@ export function pollRunnerJob(
 ): void {
   try {
     const runnerId = (req.body?.runnerId as string) || env.DOCKER_RUNNER_ID || 'windows-docker-runner';
+
+    if (env.DOCKER_RUNNER_ID && req.body?.runnerId && req.body.runnerId !== env.DOCKER_RUNNER_ID) {
+      res.status(403).json({
+        success: false,
+        message: 'Unauthorized runner ID.',
+      });
+      return;
+    }
+
+    // Priority 1: Check for pending Docker Management jobs (containers, images, networks, volumes)
+    const mgmtJob = leaseNextManagementJob();
+    if (mgmtJob) {
+      res.status(200).json({
+        success: true,
+        data: {
+          id: mgmtJob.id,
+          jobType: 'MANAGEMENT',
+          actionType: mgmtJob.actionType,
+          params: mgmtJob.params,
+        },
+      });
+      return;
+    }
+
+    // Priority 2: Check for queued One-Click Docker Build jobs
     const job = leaseNextQueuedJob(runnerId);
 
     res.status(200).json({
       success: true,
       data: job ? {
         id: job.id,
+        jobType: 'BUILD',
         repoFullName: job.repoFullName,
         branch: job.branch,
         imageTag: job.imageTag,
@@ -135,6 +166,24 @@ export function completeRunnerJob(
   try {
     const { id } = req.params;
     const runnerId = (req.body?.runnerId as string) || env.DOCKER_RUNNER_ID || 'windows-docker-runner';
+
+    // If this is a management job
+    if (id.startsWith('mgnt_')) {
+      const { success, data, error } = req.body;
+      completeManagementJob(id, {
+        success: Boolean(success),
+        data,
+        error,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Management job recorded.',
+      });
+      return;
+    }
+
+    // Standard build job completion
     const { success, imageId, imageSize, error, durationMs } = req.body;
 
     const job = completeBuildJob(id, runnerId, {
@@ -148,6 +197,22 @@ export function completeRunnerJob(
     res.status(200).json({
       success: true,
       data: job,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function receiveRunnerInventory(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  try {
+    updateInventorySnapshot(req.body);
+    res.status(200).json({
+      success: true,
+      message: 'Docker inventory snapshot updated.',
     });
   } catch (error) {
     next(error);

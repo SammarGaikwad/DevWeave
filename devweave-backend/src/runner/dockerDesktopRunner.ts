@@ -7,7 +7,16 @@ import {
   dockerRunnerSnapshotSchema,
   type ValidatedDockerRunnerSnapshot,
 } from '../schemas/dockerRunnerSchema.js';
-import { pollForJob, executeBuildJob } from './dockerJobExecutor.js';
+import {
+  pollForJob,
+  executeBuildJob,
+  type BuildJobPayload,
+} from './dockerJobExecutor.js';
+import {
+  executeManagementJob,
+  collectDockerInventory,
+  pushInventorySnapshot,
+} from './dockerManagementExecutor.js';
 
 // Load environment variables if running standalone
 dotenv.config();
@@ -222,6 +231,7 @@ export function startDockerRunner(
   let isRunning = false;
   let isStopped = false;
   let timer: ReturnType<typeof setInterval> | null = null;
+  let iterationCounter = 0;
 
   const runIteration = async () => {
     if (isStopped || isRunning) return;
@@ -243,17 +253,32 @@ export function startDockerRunner(
         );
       }
 
-      // Check for assigned Docker build jobs if Docker is available
+      // Check for assigned Docker management and build jobs if Docker is available
       if (dockerAvailable) {
+        // Periodically refresh inventory snapshot every 3 iterations (~30s) or on first run
+        if (iterationCounter % 3 === 0) {
+          try {
+            const inv = await collectDockerInventory();
+            await pushInventorySnapshot(config, inv);
+          } catch {
+            // Background telemetry sync failure
+          }
+        }
+
         try {
-          const job = await pollJob(config);
+          const job = await pollJob(config, { logger, timeoutMs: 8000 });
           if (job && !isStopped) {
-            logger.info(`Assigned build job claimed: ${job.id} (${job.imageTag})`);
-            await executeJob(job, config, logger);
+            if ('actionType' in job) {
+              await executeManagementJob(job, config, logger);
+            } else {
+              await executeJob(job as BuildJobPayload, config, logger);
+            }
           }
         } catch (jobErr) {
           logger.warn(`Job execution warning: ${jobErr}`);
         }
+
+        iterationCounter++;
       }
     } catch (error) {
       if (isStopped) return;

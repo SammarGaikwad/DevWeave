@@ -213,4 +213,38 @@ describe('Docker Runner API', () => {
       expect(res.body.data.snapshot.runnerId).toBe('windows-dev-pc');
     });
   });
+
+  describe('Runner Job Polling API', () => {
+    it('rejects unauthenticated poll request with 401', async () => {
+      const res = await request(app).post('/api/v1/docker/runner/jobs/poll').send({});
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects unauthorized runner ID with 403 when DOCKER_RUNNER_ID is configured', async () => {
+      const originalRunnerId = env.DOCKER_RUNNER_ID;
+      try {
+        env.DOCKER_RUNNER_ID = 'correct-runner';
+        const res = await request(app)
+          .post('/api/v1/docker/runner/jobs/poll')
+          .set('Authorization', `Bearer ${runnerToken}`)
+          .send({ runnerId: 'wrong-runner' });
+
+        expect(res.status).toBe(403);
+        expect(res.body.success).toBe(false);
+        expect(res.body.message).toBe('Unauthorized runner ID.');
+      } finally {
+        env.DOCKER_RUNNER_ID = originalRunnerId;
+      }
+    });
+
+    it('accepts authorized poll request and returns 200 with data null or payload', async () => {
+      const res = await request(app)
+        .post('/api/v1/docker/runner/jobs/poll')
+        .set('Authorization', `Bearer ${runnerToken}`)
+        .send({ runnerId: 'windows-docker-runner' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+  });
 });
