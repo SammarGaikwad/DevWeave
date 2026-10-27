@@ -17,6 +17,7 @@ describe('Diagnostic Engine & AI Fallback API Tests', () => {
       expect(res.body.data.provider).toBe('DETERMINISTIC_RULES');
       expect(res.body.data.isLLMConfigured).toBe(false);
       expect(res.body.data.attributionNotice).toContain('No external LLM API key');
+      expect(res.body.data.supportedSignatures.length).toBeGreaterThan(5);
     });
 
     it('should reject unauthenticated request with 401', async () => {
@@ -71,6 +72,61 @@ sh: 1: vitest: not found
       expect(resV1.status).toBe(200);
       expect(resV1.body.data.signature).toBe('RULE_NETWORK_CONNECTION_REFUSED');
       expect(resV1.body.data.category).toBe('NETWORK_CONNECTIVITY');
+    });
+
+    it('should diagnose Kubernetes CrashLoopBackOff failure accurately', async () => {
+      const logSnippet = `Events:
+  Type     Reason     Age                From               Message
+  Warning  BackOff    2m (x5 over 4m)    kubelet            Back-off restarting failed container web-app in pod web-app-7d9f784b8c-x9k2p (exit code 137)`;
+
+      const res = await request(app)
+        .post('/api/v1/ai/diagnose')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ logText: logSnippet });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.signature).toBe('RULE_K8S_CRASHLOOP_BACKOFF');
+      expect(res.body.data.category).toBe('KUBERNETES');
+      expect(res.body.data.severity).toBe('CRITICAL');
+      expect(res.body.data.recommendedFixes.some((f: { command?: string }) => f.command?.includes('kubectl logs'))).toBe(true);
+    });
+
+    it('should diagnose Kubernetes ImagePullBackOff failure accurately', async () => {
+      const logSnippet = `Failed to pull image "myrepo/backend:v1.2.9": rpc error: code = NotFound desc = failed to pull and unpack image: manifest unknown`;
+
+      const res = await request(app)
+        .post('/api/v1/ai/diagnose')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ logText: logSnippet });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.signature).toBe('RULE_K8S_IMAGE_PULL_ERROR');
+      expect(res.body.data.category).toBe('KUBERNETES');
+    });
+
+    it('should diagnose Docker image build failure accurately', async () => {
+      const logSnippet = `Step 7/12 : RUN npm run build
+ ---> Running in a1b2c3d4e5f6
+ERROR: failed to solve with frontend dockerfile.v0: process "/bin/sh -c npm run build" did not complete successfully: exit code: 1`;
+
+      const res = await request(app)
+        .post('/api/v1/ai/diagnose')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ logText: logSnippet });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.signature).toBe('RULE_DOCKER_BUILD_FAILED');
+      expect(res.body.data.category).toBe('DOCKER_CONTAINER');
+    });
+
+    it('should reject empty log text with 400 Bad Request', async () => {
+      const res = await request(app)
+        .post('/api/v1/ai/diagnose')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ logText: '   ' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
     });
   });
 

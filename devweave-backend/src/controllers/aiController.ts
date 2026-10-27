@@ -5,7 +5,11 @@ import { env } from '../config/env.js';
 import { z } from 'zod';
 
 const diagnoseSchema = z.object({
-  logText: z.string().min(1, 'Log text is required for diagnosis.'),
+  logText: z
+    .string()
+    .trim()
+    .min(1, 'Log text is required for diagnosis.')
+    .max(100000, 'Log text cannot exceed 100,000 characters.'),
   context: z
     .object({
       pipelineId: z.string().optional(),
@@ -61,6 +65,13 @@ export function getDiagnosticProviderStatus(
         'Network connection timeouts & ECONNREFUSED',
         'Docker daemon offline socket errors',
         'Heap memory exhaustion (OOM)',
+        'Kubernetes CrashLoopBackOff & container exit code 137',
+        'Kubernetes ImagePullBackOff / ErrImagePull',
+        'Docker image build & BuildKit failures',
+        'Container health check & probe failures',
+        'Jenkins pipeline stage termination',
+        'Missing required environment variables',
+        'npm peer dependency conflict (ERESOLVE)',
       ],
     },
   });

@@ -8,22 +8,27 @@ export interface AIProviderStatus {
   supportedSignatures: string[];
 }
 
+export interface DiagnosticFix {
+  title: string;
+  description: string;
+  command?: string;
+  codeSnippet?: string;
+  context?: 'bash' | 'powershell' | 'docker' | 'kubernetes' | 'config';
+  verification?: string;
+}
+
 export interface DiagnosticResult {
-  engineType: 'RULE_BASED_DIAGNOSTIC_ENGINE';
-  isAIGenerated: false;
+  engineType: 'RULE_BASED_DIAGNOSTIC_ENGINE' | 'AI_ASSISTED_DIAGNOSTIC_ENGINE';
+  isAIGenerated: boolean;
   signature: string;
   category: string;
   title: string;
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   rootCause: string;
   pinpointedLogSnippet?: string;
-  recommendedFixes: {
-    title: string;
-    description: string;
-    command?: string;
-    codeSnippet?: string;
-  }[];
+  recommendedFixes: DiagnosticFix[];
   preventionGuideline: string;
+  confidenceScore?: number;
 }
 
 export interface AIChatMessage {
