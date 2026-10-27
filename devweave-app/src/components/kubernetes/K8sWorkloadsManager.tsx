@@ -6,6 +6,7 @@ import {
   Sliders,
   FileCode,
   Trash2,
+  Plus,
 } from 'lucide-react';
 import type {
   K8sDeploymentSummary,
@@ -35,6 +36,7 @@ interface K8sWorkloadsManagerProps {
   onRestart: (kind: string, name: string, namespace: string) => Promise<void>;
   onDelete: (kind: string, name: string, namespace: string) => Promise<void>;
   onRefresh: () => void;
+  onNavigateToEditor?: (blueprintId?: string) => void;
 }
 
 export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
@@ -51,6 +53,7 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
   onRestart,
   onDelete,
   onRefresh,
+  onNavigateToEditor,
 }) => {
   const [subTab, setSubTab] = useState<
     'deployments' | 'pods' | 'statefulsets' | 'daemonsets' | 'jobs' | 'cronjobs' | 'replicasets'
@@ -63,7 +66,9 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
     name: string;
     namespace: string;
     replicas: number;
-  }>({ isOpen: false, kind: 'Deployment', name: '', namespace: 'default', replicas: 1 });
+    errorMessage?: string | null;
+  }>({ isOpen: false, kind: 'Deployment', name: '', namespace: 'default', replicas: 1, errorMessage: null });
+  const [scaleLoading, setScaleLoading] = useState<boolean>(false);
 
   const [logsModal, setLogsModal] = useState<{
     isOpen: boolean;
@@ -85,6 +90,7 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
     description: string;
     actionLabel: string;
     isDestructive: boolean;
+    errorMessage?: string | null;
     target: { kind: string; name: string; namespace: string; action: 'delete' | 'restart' };
   }>({
     isOpen: false,
@@ -92,6 +98,7 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
     description: '',
     actionLabel: '',
     isDestructive: false,
+    errorMessage: null,
     target: { kind: '', name: '', namespace: 'default', action: 'delete' },
   });
 
@@ -120,92 +127,122 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
   const handleConfirmAction = async () => {
     const { kind, name, namespace, action } = confirmModal.target;
     setActionLoading(true);
+    setConfirmModal((prev) => ({ ...prev, errorMessage: null }));
     try {
       if (action === 'delete') {
         await onDelete(kind, name, namespace);
       } else if (action === 'restart') {
         await onRestart(kind, name, namespace);
       }
-      setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+      setConfirmModal((prev) => ({ ...prev, isOpen: false, errorMessage: null }));
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Operation failed.';
+      setConfirmModal((prev) => ({ ...prev, errorMessage: msg }));
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleScaleSubmit = async (replicas: number) => {
+    setScaleLoading(true);
+    setScaleModal((prev) => ({ ...prev, errorMessage: null }));
+    try {
+      await onScale(scaleModal.kind, scaleModal.name, scaleModal.namespace, replicas);
+      setScaleModal((prev) => ({ ...prev, isOpen: false, errorMessage: null }));
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to scale workload.';
+      setScaleModal((prev) => ({ ...prev, errorMessage: msg }));
+    } finally {
+      setScaleLoading(false);
     }
   };
 
   return (
     <div className="space-y-4">
       {/* Sub tabs navigation */}
-      <div className="flex items-center space-x-1 p-1 bg-slate-900/60 rounded-xl border border-slate-800 text-xs overflow-x-auto">
-        <button
-          onClick={() => setSubTab('deployments')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
-            subTab === 'deployments'
-              ? 'bg-indigo-600 text-white shadow'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-          }`}
-        >
-          Deployments ({filteredDeployments.length})
-        </button>
-        <button
-          onClick={() => setSubTab('pods')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
-            subTab === 'pods'
-              ? 'bg-indigo-600 text-white shadow'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-          }`}
-        >
-          Pods ({filteredPods.length})
-        </button>
-        <button
-          onClick={() => setSubTab('statefulsets')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
-            subTab === 'statefulsets'
-              ? 'bg-indigo-600 text-white shadow'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-          }`}
-        >
-          StatefulSets ({filteredStatefulSets.length})
-        </button>
-        <button
-          onClick={() => setSubTab('daemonsets')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
-            subTab === 'daemonsets'
-              ? 'bg-indigo-600 text-white shadow'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-          }`}
-        >
-          DaemonSets ({filteredDaemonSets.length})
-        </button>
-        <button
-          onClick={() => setSubTab('jobs')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
-            subTab === 'jobs'
-              ? 'bg-indigo-600 text-white shadow'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-          }`}
-        >
-          Jobs ({filteredJobs.length})
-        </button>
-        <button
-          onClick={() => setSubTab('cronjobs')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
-            subTab === 'cronjobs'
-              ? 'bg-indigo-600 text-white shadow'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-          }`}
-        >
-          CronJobs ({filteredCronJobs.length})
-        </button>
-        <button
-          onClick={() => setSubTab('replicasets')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
-            subTab === 'replicasets'
-              ? 'bg-indigo-600 text-white shadow'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-          }`}
-        >
-          ReplicaSets ({filteredReplicaSets.length})
-        </button>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center space-x-1 p-1 bg-slate-900/60 rounded-xl border border-slate-800 text-xs overflow-x-auto">
+          <button
+            onClick={() => setSubTab('deployments')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
+              subTab === 'deployments'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
+          >
+            Deployments ({filteredDeployments.length})
+          </button>
+          <button
+            onClick={() => setSubTab('pods')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
+              subTab === 'pods'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
+          >
+            Pods ({filteredPods.length})
+          </button>
+          <button
+            onClick={() => setSubTab('statefulsets')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
+              subTab === 'statefulsets'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
+          >
+            StatefulSets ({filteredStatefulSets.length})
+          </button>
+          <button
+            onClick={() => setSubTab('daemonsets')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
+              subTab === 'daemonsets'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
+          >
+            DaemonSets ({filteredDaemonSets.length})
+          </button>
+          <button
+            onClick={() => setSubTab('jobs')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
+              subTab === 'jobs'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
+          >
+            Jobs ({filteredJobs.length})
+          </button>
+          <button
+            onClick={() => setSubTab('cronjobs')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
+              subTab === 'cronjobs'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
+          >
+            CronJobs ({filteredCronJobs.length})
+          </button>
+          <button
+            onClick={() => setSubTab('replicasets')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
+              subTab === 'replicasets'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
+          >
+            ReplicaSets ({filteredReplicaSets.length})
+          </button>
+        </div>
+
+        {onNavigateToEditor && (
+          <button
+            onClick={() => onNavigateToEditor('deployment')}
+            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Deploy Workload</span>
+          </button>
+        )}
       </div>
 
       {/* Deployments Table */}
@@ -225,8 +262,24 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
             <tbody className="divide-y divide-slate-800/60 font-mono">
               {filteredDeployments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500 font-sans">
-                    No deployments found in the selected namespace.
+                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500 font-sans space-y-2">
+                    <p className="text-sm text-slate-300 font-medium">
+                      No application deployments found in namespace &quot;{selectedNamespace}&quot;.
+                    </p>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto">
+                      System services reside in &apos;kube-system&apos;. To launch your first workload in DevWeave, open the Manifest Studio.
+                    </p>
+                    {onNavigateToEditor && (
+                      <div className="pt-2">
+                        <button
+                          onClick={() => onNavigateToEditor('deployment')}
+                          className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition inline-flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Deploy First Workload</span>
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -831,11 +884,10 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
         name={scaleModal.name}
         namespace={scaleModal.namespace}
         currentReplicas={scaleModal.replicas}
-        onScale={async (replicas) => {
-          await onScale(scaleModal.kind, scaleModal.name, scaleModal.namespace, replicas);
-          setScaleModal((prev) => ({ ...prev, isOpen: false }));
-        }}
-        onClose={() => setScaleModal((prev) => ({ ...prev, isOpen: false }))}
+        isLoading={scaleLoading}
+        errorMessage={scaleModal.errorMessage}
+        onScale={handleScaleSubmit}
+        onClose={() => setScaleModal((prev) => ({ ...prev, isOpen: false, errorMessage: null }))}
       />
 
       <K8sLogsModal
@@ -861,9 +913,10 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
         description={confirmModal.description}
         actionLabel={confirmModal.actionLabel}
         isDestructive={confirmModal.isDestructive}
+        errorMessage={confirmModal.errorMessage}
         isLoading={actionLoading}
         onConfirm={handleConfirmAction}
-        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false, errorMessage: null }))}
       />
     </div>
   );

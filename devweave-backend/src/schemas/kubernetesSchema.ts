@@ -22,16 +22,19 @@ export type ValidatedKubernetesRunnerSnapshot = z.infer<
 >;
 
 export const k8sApplyManifestSchema = z.object({
-  yaml: z.string().min(1, 'YAML manifest is required.'),
+  yaml: z
+    .string()
+    .min(1, 'YAML manifest is required.')
+    .max(1_000_000, 'Manifest exceeds maximum allowable size of 1MB.'),
   namespace: z.string().regex(DNS_1123_NAME_REGEX, {
     message: 'Invalid namespace format.',
   }).optional(),
 });
 
 export const k8sDeleteResourceSchema = z.object({
-  kind: z.string().min(1, 'Resource kind is required.'),
-  name: z.string().min(1, 'Resource name is required.'),
-  namespace: z.string().optional(),
+  kind: z.string().min(1, 'Resource kind is required.').max(63),
+  name: z.string().min(1, 'Resource name is required.').max(253),
+  namespace: z.string().max(63).optional(),
 });
 
 export const k8sScaleResourceSchema = z.object({

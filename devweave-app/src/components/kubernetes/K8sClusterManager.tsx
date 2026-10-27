@@ -53,6 +53,7 @@ export const K8sClusterManager: React.FC<K8sClusterManagerProps> = ({
     description: string;
     actionLabel: string;
     isProtected: boolean;
+    errorMessage?: string | null;
     namespaceName: string;
   }>({
     isOpen: false,
@@ -60,6 +61,7 @@ export const K8sClusterManager: React.FC<K8sClusterManagerProps> = ({
     description: '',
     actionLabel: '',
     isProtected: false,
+    errorMessage: null,
     namespaceName: '',
   });
 
@@ -89,9 +91,13 @@ export const K8sClusterManager: React.FC<K8sClusterManagerProps> = ({
 
   const handleConfirmDeleteNs = async () => {
     setActionLoading(true);
+    setConfirmModal((prev) => ({ ...prev, errorMessage: null }));
     try {
       await onDeleteNamespace(confirmModal.namespaceName);
-      setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+      setConfirmModal((prev) => ({ ...prev, isOpen: false, errorMessage: null }));
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Namespace deletion failed.';
+      setConfirmModal((prev) => ({ ...prev, errorMessage: msg }));
     } finally {
       setActionLoading(false);
     }
@@ -383,9 +389,10 @@ export const K8sClusterManager: React.FC<K8sClusterManagerProps> = ({
         actionLabel={confirmModal.actionLabel}
         isDestructive={true}
         isProtected={confirmModal.isProtected}
+        errorMessage={confirmModal.errorMessage}
         isLoading={actionLoading}
         onConfirm={handleConfirmDeleteNs}
-        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false, errorMessage: null }))}
       />
     </div>
   );

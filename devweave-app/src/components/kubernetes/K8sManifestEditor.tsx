@@ -18,11 +18,16 @@ import {
 } from '../../services/kubernetesService';
 
 interface K8sManifestEditorProps {
+  initialBlueprintId?: string;
   onApplied?: () => void;
 }
 
-export const K8sManifestEditor: React.FC<K8sManifestEditorProps> = ({ onApplied }) => {
+export const K8sManifestEditor: React.FC<K8sManifestEditorProps> = ({
+  initialBlueprintId,
+  onApplied,
+}) => {
   const [editorMode, setEditorMode] = useState<'editor' | 'templates' | 'generator'>('editor');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialBlueprintId || 'deployment');
   const [yamlContent, setYamlContent] = useState<string>(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -62,8 +67,18 @@ spec:
 
   // Templates
   const [templates, setTemplates] = useState<K8sManifestTemplateSummary[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('deployment');
   const [activeTemplate, setActiveTemplate] = useState<K8sManifestTemplateDetail | null>(null);
+
+  useEffect(() => {
+    if (initialBlueprintId) {
+      setSelectedTemplateId(initialBlueprintId);
+      kubernetesService.getTemplateById(initialBlueprintId).then((t) => {
+        if (t?.content) {
+          setYamlContent(t.content);
+        }
+      }).catch(() => {});
+    }
+  }, [initialBlueprintId]);
 
   // Custom Generator options
   const [customOptions, setCustomOptions] = useState<K8sCustomOptions>({

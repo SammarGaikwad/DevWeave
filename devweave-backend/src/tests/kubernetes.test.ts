@@ -621,4 +621,274 @@ spec:
       expect(res.body.message).toContain('npm run runner:k8s');
     });
   });
+
+  // -------------------------------------------------------------
+  // Suite 8: Resource Inspection & Pod Logs
+  // -------------------------------------------------------------
+  describe('Resource Inspection & Logs Endpoints', () => {
+    it('fetches resource YAML via runner job dispatch', async () => {
+      saveKubernetesRunnerSnapshot(validSnapshot);
+
+      const runnerPollTimer = setTimeout(async () => {
+        try {
+          const pollRes = await request(app)
+            .post('/api/v1/kubernetes/runner/jobs/poll')
+            .set('Authorization', `Bearer ${runnerToken}`)
+            .send({ runnerId: 'windows-k8s-runner' });
+
+          if (pollRes.body?.data?.id) {
+            expect(pollRes.body.data.actionType).toBe('K8S_GET_RESOURCE_YAML');
+            await request(app)
+              .post(`/api/v1/kubernetes/runner/jobs/${pollRes.body.data.id}/complete`)
+              .set('Authorization', `Bearer ${runnerToken}`)
+              .send({
+                success: true,
+                data: { yaml: 'apiVersion: v1\nkind: Service\nmetadata:\n  name: order-svc' },
+              });
+          }
+        } catch {
+          //
+        }
+      }, 30);
+
+      const res = await request(app)
+        .get('/api/v1/kubernetes/resources/service/order-svc/yaml?namespace=default')
+        .set('Authorization', `Bearer ${token}`);
+
+      clearTimeout(runnerPollTimer);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.yaml).toContain('order-svc');
+    });
+
+    it('fetches kubectl describe output via runner job dispatch', async () => {
+      saveKubernetesRunnerSnapshot(validSnapshot);
+
+      const runnerPollTimer = setTimeout(async () => {
+        try {
+          const pollRes = await request(app)
+            .post('/api/v1/kubernetes/runner/jobs/poll')
+            .set('Authorization', `Bearer ${runnerToken}`)
+            .send({ runnerId: 'windows-k8s-runner' });
+
+          if (pollRes.body?.data?.id) {
+            expect(pollRes.body.data.actionType).toBe('K8S_GET_DESCRIBE');
+            await request(app)
+              .post(`/api/v1/kubernetes/runner/jobs/${pollRes.body.data.id}/complete`)
+              .set('Authorization', `Bearer ${runnerToken}`)
+              .send({
+                success: true,
+                data: { description: 'Name: order-svc\nNamespace: default\nLabels: app=order' },
+              });
+          }
+        } catch {
+          //
+        }
+      }, 30);
+
+      const res = await request(app)
+        .get('/api/v1/kubernetes/resources/service/order-svc/describe?namespace=default')
+        .set('Authorization', `Bearer ${token}`);
+
+      clearTimeout(runnerPollTimer);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.description).toContain('Name: order-svc');
+    });
+
+    it('fetches container logs from pod with tail limit', async () => {
+      saveKubernetesRunnerSnapshot(validSnapshot);
+
+      const runnerPollTimer = setTimeout(async () => {
+        try {
+          const pollRes = await request(app)
+            .post('/api/v1/kubernetes/runner/jobs/poll')
+            .set('Authorization', `Bearer ${runnerToken}`)
+            .send({ runnerId: 'windows-k8s-runner' });
+
+          if (pollRes.body?.data?.id) {
+            expect(pollRes.body.data.actionType).toBe('K8S_GET_LOGS');
+            expect(pollRes.body.data.params.tailLines).toBe(50);
+            await request(app)
+              .post(`/api/v1/kubernetes/runner/jobs/${pollRes.body.data.id}/complete`)
+              .set('Authorization', `Bearer ${runnerToken}`)
+              .send({
+                success: true,
+                data: {
+                  podName: 'order-api-7b89f-abcd',
+                  namespace: 'default',
+                  logs: '[INFO] Server started on port 8080\n[INFO] Healthcheck OK',
+                },
+              });
+          }
+        } catch {
+          //
+        }
+      }, 30);
+
+      const res = await request(app)
+        .get('/api/v1/kubernetes/pods/default/order-api-7b89f-abcd/logs?tailLines=50')
+        .set('Authorization', `Bearer ${token}`);
+
+      clearTimeout(runnerPollTimer);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.logs).toContain('Server started on port 8080');
+    });
+  });
+
+  // -------------------------------------------------------------
+  // Suite 9: Secret Decryption & Authorized Reveal Flow
+  // -------------------------------------------------------------
+  describe('Authorized Secret Reveal Endpoint', () => {
+    it('reveals secret key through authorized decryption and logs audit event', async () => {
+      saveKubernetesRunnerSnapshot(validSnapshot);
+
+      const runnerPollTimer = setTimeout(async () => {
+        try {
+          const pollRes = await request(app)
+            .post('/api/v1/kubernetes/runner/jobs/poll')
+            .set('Authorization', `Bearer ${runnerToken}`)
+            .send({ runnerId: 'windows-k8s-runner' });
+
+          if (pollRes.body?.data?.id) {
+            expect(pollRes.body.data.actionType).toBe('K8S_REVEAL_SECRET');
+            expect(pollRes.body.data.params.key).toBe('DB_PASSWORD');
+
+            await request(app)
+              .post(`/api/v1/kubernetes/runner/jobs/${pollRes.body.data.id}/complete`)
+              .set('Authorization', `Bearer ${runnerToken}`)
+              .send({
+                success: true,
+                data: { key: 'DB_PASSWORD', value: 'DecryptedP@ssword123!' },
+              });
+          }
+        } catch {
+          //
+        }
+      }, 30);
+
+      const res = await request(app)
+        .post('/api/v1/kubernetes/secrets/reveal')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          namespace: 'default',
+          name: 'db-credentials',
+          key: 'DB_PASSWORD',
+        });
+
+      clearTimeout(runnerPollTimer);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.key).toBe('DB_PASSWORD');
+      expect(res.body.data.value).toBe('DecryptedP@ssword123!');
+
+      // Check audit log contains record of secret reveal
+      const auditRes = await request(app)
+        .get('/api/v1/kubernetes/audit-logs')
+        .set('Authorization', `Bearer ${token}`);
+      const revealAudit = auditRes.body.data.find(
+        (e: { action: string; resourceName: string }) =>
+          e.action === 'K8S_REVEAL_SECRET' && e.resourceName === 'db-credentials'
+      );
+      expect(revealAudit).toBeDefined();
+      expect(revealAudit.status).toBe('SUCCESS');
+    });
+  });
+
+  // -------------------------------------------------------------
+  // Suite 10: Resource Deletion Lifecycle
+  // -------------------------------------------------------------
+  describe('Resource Deletion Execution', () => {
+    it('deletes user service through runner job dispatch', async () => {
+      saveKubernetesRunnerSnapshot(validSnapshot);
+
+      const runnerPollTimer = setTimeout(async () => {
+        try {
+          const pollRes = await request(app)
+            .post('/api/v1/kubernetes/runner/jobs/poll')
+            .set('Authorization', `Bearer ${runnerToken}`)
+            .send({ runnerId: 'windows-k8s-runner' });
+
+          if (pollRes.body?.data?.id) {
+            expect(pollRes.body.data.actionType).toBe('K8S_DELETE_RESOURCE');
+            expect(pollRes.body.data.params.name).toBe('test-service');
+
+            await request(app)
+              .post(`/api/v1/kubernetes/runner/jobs/${pollRes.body.data.id}/complete`)
+              .set('Authorization', `Bearer ${runnerToken}`)
+              .send({
+                success: true,
+                data: { deleted: true, output: 'service "test-service" deleted' },
+              });
+          }
+        } catch {
+          //
+        }
+      }, 30);
+
+      const res = await request(app)
+        .delete('/api/v1/kubernetes/resources/service/test-service?namespace=default')
+        .set('Authorization', `Bearer ${token}`);
+
+      clearTimeout(runnerPollTimer);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toContain('deleted successfully');
+    });
+  });
+
+  // -------------------------------------------------------------
+  // Suite 11: Input Validation & Edge Cases
+  // -------------------------------------------------------------
+  describe('Input Validation & Edge Cases', () => {
+    it('rejects scale with negative replicas', async () => {
+      saveKubernetesRunnerSnapshot(validSnapshot);
+
+      const res = await request(app)
+        .post('/api/v1/kubernetes/workloads/scale')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          kind: 'deployment',
+          name: 'my-app',
+          namespace: 'default',
+          replicas: -1,
+        });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects scale with non-scalable kind', async () => {
+      saveKubernetesRunnerSnapshot(validSnapshot);
+
+      const res = await request(app)
+        .post('/api/v1/kubernetes/workloads/scale')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          kind: 'configmap',
+          name: 'my-config',
+          namespace: 'default',
+          replicas: 2,
+        });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects secret reveal without key', async () => {
+      const res = await request(app)
+        .post('/api/v1/kubernetes/secrets/reveal')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          namespace: 'default',
+          name: 'my-secret',
+        });
+
+      expect(res.status).toBe(400);
+    });
+  });
 });

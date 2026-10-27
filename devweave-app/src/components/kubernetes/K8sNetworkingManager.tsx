@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Network, Globe, Shield, FileCode, Trash2, ShieldAlert } from 'lucide-react';
+import { Network, Globe, Shield, FileCode, Trash2, ShieldAlert, Plus } from 'lucide-react';
 import type {
   K8sServiceSummary,
   K8sIngressSummary,
@@ -16,6 +16,7 @@ interface K8sNetworkingManagerProps {
   searchTerm: string;
   onDelete: (kind: string, name: string, namespace: string) => Promise<void>;
   onRefresh: () => void;
+  onNavigateToEditor?: (blueprintId?: string) => void;
 }
 
 export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
@@ -26,6 +27,7 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
   searchTerm,
   onDelete,
   onRefresh,
+  onNavigateToEditor,
 }) => {
   const [subTab, setSubTab] = useState<'services' | 'ingresses' | 'networkpolicies'>('services');
 
@@ -43,6 +45,7 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
     actionLabel: string;
     isDestructive: boolean;
     isProtected: boolean;
+    errorMessage?: string | null;
     target: { kind: string; name: string; namespace: string };
   }>({
     isOpen: false,
@@ -51,6 +54,7 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
     actionLabel: '',
     isDestructive: false,
     isProtected: false,
+    errorMessage: null,
     target: { kind: '', name: '', namespace: 'default' },
   });
 
@@ -74,9 +78,13 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
   const handleConfirmDelete = async () => {
     const { kind, name, namespace } = confirmModal.target;
     setActionLoading(true);
+    setConfirmModal((prev) => ({ ...prev, errorMessage: null }));
     try {
       await onDelete(kind, name, namespace);
-      setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+      setConfirmModal((prev) => ({ ...prev, isOpen: false, errorMessage: null }));
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Delete operation failed.';
+      setConfirmModal((prev) => ({ ...prev, errorMessage: msg }));
     } finally {
       setActionLoading(false);
     }
@@ -85,37 +93,49 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
   return (
     <div className="space-y-4">
       {/* Sub tabs */}
-      <div className="flex items-center space-x-1 p-1 bg-slate-900/60 rounded-xl border border-slate-800 text-xs overflow-x-auto">
-        <button
-          onClick={() => setSubTab('services')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
-            subTab === 'services'
-              ? 'bg-indigo-600 text-white shadow'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-          }`}
-        >
-          Services ({filteredServices.length})
-        </button>
-        <button
-          onClick={() => setSubTab('ingresses')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
-            subTab === 'ingresses'
-              ? 'bg-indigo-600 text-white shadow'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-          }`}
-        >
-          Ingresses ({filteredIngresses.length})
-        </button>
-        <button
-          onClick={() => setSubTab('networkpolicies')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
-            subTab === 'networkpolicies'
-              ? 'bg-indigo-600 text-white shadow'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-          }`}
-        >
-          Network Policies ({filteredNetworkPolicies.length})
-        </button>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center space-x-1 p-1 bg-slate-900/60 rounded-xl border border-slate-800 text-xs overflow-x-auto">
+          <button
+            onClick={() => setSubTab('services')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
+              subTab === 'services'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
+          >
+            Services ({filteredServices.length})
+          </button>
+          <button
+            onClick={() => setSubTab('ingresses')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
+              subTab === 'ingresses'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
+          >
+            Ingresses ({filteredIngresses.length})
+          </button>
+          <button
+            onClick={() => setSubTab('networkpolicies')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition whitespace-nowrap ${
+              subTab === 'networkpolicies'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
+          >
+            Network Policies ({filteredNetworkPolicies.length})
+          </button>
+        </div>
+
+        {onNavigateToEditor && (
+          <button
+            onClick={() => onNavigateToEditor('service')}
+            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Service</span>
+          </button>
+        )}
       </div>
 
       {/* Services Table */}
@@ -378,9 +398,10 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
         actionLabel={confirmModal.actionLabel}
         isDestructive={confirmModal.isDestructive}
         isProtected={confirmModal.isProtected}
+        errorMessage={confirmModal.errorMessage}
         isLoading={actionLoading}
         onConfirm={handleConfirmDelete}
-        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false, errorMessage: null }))}
       />
     </div>
   );

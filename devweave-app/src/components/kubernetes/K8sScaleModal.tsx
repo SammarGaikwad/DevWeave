@@ -8,6 +8,7 @@ interface K8sScaleModalProps {
   namespace: string;
   currentReplicas: number;
   isLoading?: boolean;
+  errorMessage?: string | null;
   onScale: (replicas: number) => void;
   onClose: () => void;
 }
@@ -19,6 +20,7 @@ export const K8sScaleModal: React.FC<K8sScaleModalProps> = ({
   namespace,
   currentReplicas,
   isLoading = false,
+  errorMessage,
   onScale,
   onClose,
 }) => {
@@ -55,6 +57,17 @@ export const K8sScaleModal: React.FC<K8sScaleModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Error message */}
+        {errorMessage && (
+          <div className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-start gap-2 animate-fade-in">
+            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="font-semibold text-red-200">Scale Failed</span>
+              <p className="font-mono text-[11px] leading-relaxed">{errorMessage}</p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex items-center justify-between text-xs text-slate-300">

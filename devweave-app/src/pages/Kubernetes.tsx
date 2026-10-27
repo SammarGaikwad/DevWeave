@@ -45,8 +45,14 @@ export const Kubernetes: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
     'workloads' | 'networking' | 'config' | 'cluster' | 'editor' | 'audit'
   >('workloads');
+  const [selectedBlueprintId, setSelectedBlueprintId] = useState<string>('deployment');
 
   const timerRef = useRef<any>(null);
+
+  const handleOpenEditorWithBlueprint = (blueprintId: string = 'deployment') => {
+    setSelectedBlueprintId(blueprintId);
+    setActiveTab('editor');
+  };
 
   const fetchData = useCallback(async (isBackground = false) => {
     if (!isBackground) setRefreshing(true);
@@ -195,6 +201,17 @@ export const Kubernetes: React.FC = () => {
               className="pl-8 pr-3 py-1.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-44"
             />
           </div>
+
+          {/* Inventory Freshness indicator */}
+          {inventory?.updatedAt && (
+            <div
+              title={`Latest cluster telemetry: ${new Date(inventory.updatedAt).toLocaleTimeString()}`}
+              className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs font-mono text-slate-300"
+            >
+              <span className={`w-2 h-2 rounded-full ${isRunnerOnline && isClusterConnected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <span>Live Sync</span>
+            </div>
+          )}
 
           {/* Auto Refresh Toggle */}
           <button
@@ -419,6 +436,7 @@ export const Kubernetes: React.FC = () => {
           onRestart={handleRestart}
           onDelete={handleDeleteResource}
           onRefresh={() => fetchData(true)}
+          onNavigateToEditor={handleOpenEditorWithBlueprint}
         />
       )}
 
@@ -431,6 +449,7 @@ export const Kubernetes: React.FC = () => {
           searchTerm={searchTerm}
           onDelete={handleDeleteResource}
           onRefresh={() => fetchData(true)}
+          onNavigateToEditor={handleOpenEditorWithBlueprint}
         />
       )}
 
@@ -446,6 +465,7 @@ export const Kubernetes: React.FC = () => {
           searchTerm={searchTerm}
           onDelete={handleDeleteResource}
           onRefresh={() => fetchData(true)}
+          onNavigateToEditor={handleOpenEditorWithBlueprint}
         />
       )}
 
@@ -462,7 +482,10 @@ export const Kubernetes: React.FC = () => {
       )}
 
       {activeTab === 'editor' && (
-        <K8sManifestEditor onApplied={() => fetchData(true)} />
+        <K8sManifestEditor
+          initialBlueprintId={selectedBlueprintId}
+          onApplied={() => fetchData(true)}
+        />
       )}
 
       {activeTab === 'audit' && (

@@ -10,6 +10,7 @@ interface K8sConfirmModalProps {
   isProtected?: boolean;
   affectedResources?: string[];
   warningMessage?: string;
+  errorMessage?: string | null;
   isLoading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -24,6 +25,7 @@ export const K8sConfirmModal: React.FC<K8sConfirmModalProps> = ({
   isProtected = false,
   affectedResources = [],
   warningMessage,
+  errorMessage,
   isLoading = false,
   onConfirm,
   onCancel,
@@ -62,6 +64,17 @@ export const K8sConfirmModal: React.FC<K8sConfirmModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Server Error Message */}
+        {errorMessage && (
+          <div className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-start gap-2 animate-fade-in">
+            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="font-semibold text-red-200">Operation Error</span>
+              <p className="font-mono text-[11px] leading-relaxed">{errorMessage}</p>
+            </div>
+          </div>
+        )}
 
         {/* Protected Alert Banner */}
         {isProtected && (

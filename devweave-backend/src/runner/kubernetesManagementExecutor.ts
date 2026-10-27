@@ -12,6 +12,7 @@ import {
   PROTECTED_K8S_NAMESPACES,
   maskSecretData,
 } from '../services/kubernetesProtectionService.js';
+import YAML from 'yaml';
 
 const execFileAsync = promisify(execFile);
 
@@ -562,7 +563,7 @@ export async function executeKubernetesJob(
             const { stdout: jsonOut } = await execFn('kubectl', ['get', kind, name, '-o', 'json', ...(namespace ? ['-n', namespace] : [])]);
             const parsed = JSON.parse(jsonOut);
             const masked = maskSecretData(parsed);
-            finalYaml = JSON.stringify(masked, null, 2);
+            finalYaml = YAML.stringify(masked);
           } catch {
             // fallback
           }
@@ -597,11 +598,14 @@ export async function executeKubernetesJob(
         const { stdout } = await execFn('kubectl', ['get', 'secret', name, '-n', namespace, '-o', 'json'], { timeout: 15000 });
         const secret = JSON.parse(stdout);
         const encoded = secret.data?.[key];
-        if (!encoded) {
-          throw new Error(`Key "${key}" not found in secret "${name}".`);
+        if (encoded) {
+          const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+          return { success: true, data: { key, value: decoded } };
         }
-        const decoded = Buffer.from(encoded, 'base64').toString('utf8');
-        return { success: true, data: { key, value: decoded } };
+        if (secret.stringData?.[key] !== undefined) {
+          return { success: true, data: { key, value: String(secret.stringData[key]) } };
+        }
+        throw new Error(`Key "${key}" not found in secret "${name}".`);
       }
 
       default:
