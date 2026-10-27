@@ -44,3 +44,14 @@ export const aiChatRateLimiter = rateLimit({
   },
 });
 
+export const deploymentRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // Limit each client to 60 deployment requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many deployment requests. Please wait a moment before retrying.',
+  },
+});
+

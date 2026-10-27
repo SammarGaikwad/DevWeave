@@ -529,6 +529,20 @@ export async function executeKubernetesJob(
         return { success: true, data: { restarted: true, output: stdout || stderr } };
       }
 
+      case 'K8S_ROLLOUT_UNDO': {
+        const { kind, name, namespace, toRevision } = params;
+        const target = `${kind || 'deployment'}/${name}`;
+        const args = ['rollout', 'undo', target];
+        if (namespace) {
+          args.push('-n', namespace);
+        }
+        if (toRevision) {
+          args.push(`--to-revision=${toRevision}`);
+        }
+        const { stdout, stderr } = await execFn('kubectl', args, { timeout: 25000 });
+        return { success: true, data: { rolledBack: true, output: stdout || stderr } };
+      }
+
       case 'K8S_GET_LOGS': {
         const { podName, namespace, container, tailLines, timestamps } = params;
         const args = ['logs', podName, '-n', namespace || 'default', `--tail=${tailLines || 100}`];

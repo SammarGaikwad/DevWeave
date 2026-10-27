@@ -16,6 +16,7 @@ import monitoringRoutes from './monitoringRoutes.js';
 import aiRoutes from './aiRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
 import settingsRoutes from './settingsRoutes.js';
+import deploymentRoutes from './deploymentRoutes.js';
 import {
   getPipelineTemplates,
   getPipelineTemplateById,
@@ -46,6 +47,7 @@ router.use('/api/v1/monitoring', monitoringRoutes);
 router.use('/api/v1/ai', aiRoutes);
 router.use('/api/v1/analytics', analyticsRoutes);
 router.use('/api/v1/settings', settingsRoutes);
+router.use('/api/v1/deployments', deploymentRoutes);
 
 // Dedicated REST routes for pipeline templates and runs
 const templateRouter = Router();
