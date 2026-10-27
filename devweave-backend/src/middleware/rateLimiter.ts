@@ -55,3 +55,15 @@ export const deploymentRateLimiter = rateLimit({
   },
 });
 
+export const dashboardRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // Limit each client to 60 dashboard requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many dashboard requests. Please wait a moment before retrying.',
+  },
+});
+
+

@@ -261,6 +261,42 @@ export async function findPipelineRunsByRepositoryId(
     });
 }
 
+export async function findRecentPipelineRuns(
+  options: { userId?: string; limit?: number } = {}
+): Promise<(PipelineRun & { stageRuns: PipelineStageRun[] })[]> {
+  const limit = options.limit ?? 50;
+
+  if (await isDbAvailable()) {
+    try {
+      const runs = await prisma.pipelineRun.findMany({
+        where: options.userId ? { userId: options.userId } : {},
+        include: {
+          stageRuns: {
+            orderBy: { order: 'asc' },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      });
+      return runs;
+    } catch {
+      markDbOffline();
+    }
+  }
+
+  return Array.from(memoryRuns.values())
+    .filter((r) => !options.userId || r.userId === options.userId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, limit)
+    .map((run) => {
+      const stageRuns = Array.from(memoryStages.values())
+        .filter((s) => s.runId === run.id)
+        .sort((a, b) => a.order - b.order);
+      return { ...run, stageRuns };
+    });
+}
+
+
 export async function updatePipelineRun(
   id: string,
   data: Partial<PipelineRun>
