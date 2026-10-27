@@ -21,6 +21,11 @@ export function saveRunnerSnapshot(
   lastHeartbeatAt = Date.now();
 }
 
+export function clearRunnerSnapshot(): void {
+  latestSnapshot = null;
+  lastHeartbeatAt = null;
+}
+
 export function getRunnerSnapshot() {
   const online =
     lastHeartbeatAt !== null &&

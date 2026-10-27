@@ -523,18 +523,65 @@ export async function executeManagementJob(
 
       case 'CONTAINER_CREATE': {
         const { name, image, ports, envVars, volumes, network, restartPolicy, command } = params;
+        const inventory = await getLiveRunnerInventory(dockerExecFn);
+
         if (name) {
           const normName = name.replace(/^\//, '').toLowerCase();
           if (PROTECTED_CONTAINERS.has(normName)) {
             throw new Error(`Execution blocked: Container name '${name}' is reserved for a protected system container.`);
           }
+          const existing = (inventory.containers || []).find(
+            (c) => c.name.replace(/^\//, '').toLowerCase() === normName
+          );
+          if (existing) {
+            throw new Error(`Execution blocked: A container named '${name}' already exists in Docker daemon inventory.`);
+          }
         }
+
+        const cleanImage = (image || '').trim();
+        if (!cleanImage) {
+          throw new Error('Execution blocked: Image reference is required.');
+        }
+
+        // Verify image exists locally or safely pull it
+        let imageExistsLocally = false;
+        try {
+          await dockerExecFn(['image', 'inspect', cleanImage], 10000);
+          imageExistsLocally = true;
+        } catch {
+          imageExistsLocally = false;
+        }
+
+        if (!imageExistsLocally) {
+          logger.info(`[Management Job ${id}] Image '${cleanImage}' not found locally. Attempting to pull...`);
+          try {
+            await dockerExecFn(['pull', cleanImage], 120000);
+            logger.info(`[Management Job ${id}] Successfully pulled image '${cleanImage}'.`);
+          } catch (pullErr: any) {
+            const pullStderr = pullErr?.stderr ? `: ${pullErr.stderr.trim()}` : (pullErr?.message ? `: ${pullErr.message}` : '');
+            throw new Error(`Execution blocked: Failed to pull image '${cleanImage}'${pullStderr}`);
+          }
+        }
+
+        if (network && network !== 'default' && network !== 'bridge' && network !== 'host' && network !== 'none') {
+          const netExists = (inventory.networks || []).some(
+            (n) => n.name.toLowerCase() === network.toLowerCase() || n.id.toLowerCase().startsWith(network.toLowerCase())
+          );
+          if (!netExists) {
+            throw new Error(`Execution blocked: Network '${network}' does not exist in Docker daemon inventory.`);
+          }
+        }
+
         const args = ['run', '-d'];
         if (name) {
           args.push('--name', name);
         }
-        if (restartPolicy) args.push('--restart', restartPolicy);
-        if (network) args.push('--network', network);
+        if (restartPolicy && restartPolicy !== 'no') {
+          args.push('--restart', restartPolicy);
+        }
+        if (network && network !== 'default') {
+          args.push('--network', network);
+        }
 
         if (Array.isArray(ports)) {
           for (const p of ports) {
@@ -549,24 +596,24 @@ export async function executeManagementJob(
           }
         }
 
-        if (Array.isArray(envVars)) {
-          for (const ev of envVars) {
-            if (ev.key) {
-              args.push('-e', `${ev.key}=${ev.value || ''}`);
-            }
+        const effectiveEnv = Array.isArray(envVars) && envVars.length > 0 ? envVars : (Array.isArray(params.env) ? params.env : []);
+        for (const ev of effectiveEnv) {
+          if (ev.key) {
+            args.push('-e', `${ev.key}=${ev.value || ''}`);
           }
         }
 
         if (Array.isArray(volumes)) {
           for (const v of volumes) {
-            if (v.hostVolumeOrPath && v.containerPath) {
-              const mode = v.mode ? `:${v.mode}` : '';
-              args.push('-v', `${v.hostVolumeOrPath}:${v.containerPath}${mode}`);
+            const hostVol = v.hostVolumeOrPath || v.hostPathOrVolume;
+            if (hostVol && v.containerPath) {
+              const mode = v.mode ? `:${v.mode}` : (v.readOnly ? ':ro' : '');
+              args.push('-v', `${hostVol}:${v.containerPath}${mode}`);
             }
           }
         }
 
-        args.push(image);
+        args.push(cleanImage);
         if (command) {
           if (Array.isArray(command)) {
             args.push(...command);
@@ -575,7 +622,7 @@ export async function executeManagementJob(
           }
         }
 
-        const { stdout } = await dockerExecFn(args);
+        const { stdout } = await dockerExecFn(args, 60000);
         const newId = stdout.trim().substring(0, 12);
         resultData = { created: true, containerId: newId, name };
         break;
@@ -594,7 +641,18 @@ export async function executeManagementJob(
         assertRunnerContainerNotProtected(oldName, 'RECREATE', inventory);
 
         if (params.name) {
-          assertRunnerContainerNotProtected(params.name, 'RECREATE', inventory);
+          const normNew = params.name.replace(/^\//, '').toLowerCase();
+          if (PROTECTED_CONTAINERS.has(normNew)) {
+            throw new Error(`Execution blocked: Container name '${params.name}' is reserved for a protected system container.`);
+          }
+          if (normNew !== oldName.toLowerCase()) {
+            const existing = (inventory.containers || []).find(
+              (c) => c.name.replace(/^\//, '').toLowerCase() === normNew
+            );
+            if (existing) {
+              throw new Error(`Execution blocked: A container named '${params.name}' already exists.`);
+            }
+          }
         }
 
         // Step 2: Gracefully stop old container
@@ -608,7 +666,8 @@ export async function executeManagementJob(
         await dockerExecFn(['rm', containerId]);
 
         // Step 4: Run new container with updated parameters
-        const runArgs = ['run', '-d', '--name', oldName];
+        const targetName = params.name || oldName;
+        const runArgs = ['run', '-d', '--name', targetName];
         const effectiveRestart = restartPolicy || details.HostConfig?.RestartPolicy?.Name || 'unless-stopped';
         if (effectiveRestart && effectiveRestart !== 'no') {
           runArgs.push('--restart', effectiveRestart);

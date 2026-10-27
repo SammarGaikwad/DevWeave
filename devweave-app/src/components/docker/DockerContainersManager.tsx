@@ -299,25 +299,84 @@ export const DockerContainersManager: React.FC<DockerContainersManagerProps> = (
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!createForm.name.trim() || !createForm.image.trim()) {
+    const cleanName = createForm.name.trim();
+    const cleanImage = createForm.image.trim();
+
+    if (!cleanName || !cleanImage) {
       setCreateError('Container name and image reference are required.');
       return;
     }
-    // Prevent duplicate name on client
-    if (containers.some((c) => c.name.toLowerCase() === createForm.name.trim().toLowerCase())) {
-      setCreateError(`A container with the name "${createForm.name.trim()}" already exists.`);
+
+    const nameRegex = /^[a-zA-Z0-9][a-zA-Z0-9_.-]+$/;
+    if (!nameRegex.test(cleanName) || cleanName.length < 2 || cleanName.length > 128) {
+      setCreateError('Container name must start with an alphanumeric character and contain only alphanumeric characters, underscores, dots, or hyphens (2-128 characters).');
       return;
+    }
+
+    const protectedNames = ['smart_review_backend_api', 'smart_review_analytics_engine', 'jenkins'];
+    if (protectedNames.includes(cleanName.toLowerCase())) {
+      setCreateError(`Container name "${cleanName}" is reserved for a protected system container.`);
+      return;
+    }
+
+    // Prevent duplicate name on client
+    if (containers.some((c) => c.name.replace(/^\//, '').toLowerCase() === cleanName.toLowerCase())) {
+      setCreateError(`A container with the name "${cleanName}" already exists.`);
+      return;
+    }
+
+    // Validate port mappings
+    const validPorts: { hostPort?: number; containerPort: number; protocol: 'tcp' | 'udp' }[] = [];
+    const hostPortsSeen = new Set<number>();
+    for (const p of createForm.ports || []) {
+      if (p.containerPort) {
+        const cPort = Number(p.containerPort);
+        if (isNaN(cPort) || cPort < 1 || cPort > 65535) {
+          setCreateError(`Container port ${p.containerPort} must be a number between 1 and 65535.`);
+          return;
+        }
+        let hPort: number | undefined = undefined;
+        if (p.hostPort !== undefined && String(p.hostPort).trim() !== '') {
+          hPort = Number(p.hostPort);
+          if (isNaN(hPort) || hPort < 1 || hPort > 65535) {
+            setCreateError(`Host port ${p.hostPort} must be a number between 1 and 65535.`);
+            return;
+          }
+          if (hostPortsSeen.has(hPort)) {
+            setCreateError(`Conflicting port mapping: Host port ${hPort} is mapped multiple times.`);
+            return;
+          }
+          hostPortsSeen.add(hPort);
+        }
+        validPorts.push({
+          hostPort: hPort,
+          containerPort: cPort,
+          protocol: p.protocol === 'udp' ? 'udp' : 'tcp',
+        });
+      }
+    }
+
+    // Validate environment variables
+    const validEnv: { key: string; value: string }[] = [];
+    const envKeyRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+    for (const ev of createForm.envVars || []) {
+      const key = ev.key.trim();
+      if (key) {
+        if (!envKeyRegex.test(key)) {
+          setCreateError(`Environment variable key "${key}" is invalid. Keys must start with a letter/underscore and contain only letters, numbers, or underscores.`);
+          return;
+        }
+        validEnv.push({ key, value: ev.value });
+      }
     }
 
     setCreateLoading(true);
     setCreateError(null);
     try {
-      const validPorts = (createForm.ports || []).filter((p) => p.containerPort > 0);
-      const validEnv = (createForm.envVars || []).filter((ev) => ev.key.trim().length > 0);
       await dockerService.createContainer({
         ...createForm,
-        name: createForm.name.trim(),
-        image: createForm.image.trim(),
+        name: cleanName,
+        image: cleanImage,
         ports: validPorts,
         envVars: validEnv,
       });

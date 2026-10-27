@@ -1254,5 +1254,164 @@ describe('Docker Desktop Runner Module', () => {
       expect(reportedPayload.success).toBe(true);
       expect(executedCommands.some((c) => c[0] === 'volume' && c[1] === 'rm' && c.includes('user-vol'))).toBe(true);
     });
+
+    it('runner creates container with structured arguments and performs collision and image checks', async () => {
+      const { mockExec, executedCommands } = createMockDockerExec();
+      let reportedPayload: any = null;
+      let inventoryPushed = false;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+        if (url.includes('/complete')) {
+          reportedPayload = JSON.parse(opts.body);
+        }
+        if (url.includes('/inventory')) {
+          inventoryPushed = true;
+        }
+        return { ok: true, json: async () => ({ success: true }) };
+      });
+
+      // Successful creation of a new container
+      await executeManagementJob(
+        {
+          id: 'job-create-success',
+          jobType: 'MANAGEMENT',
+          actionType: 'CONTAINER_CREATE',
+          params: {
+            name: 'nginx-demo-test',
+            image: 'user-app:1.0',
+            ports: [{ hostPort: 8088, containerPort: 80, protocol: 'tcp' }],
+            envVars: [{ key: 'NGINX_PORT', value: '80' }],
+            restartPolicy: 'unless-stopped',
+            network: 'bridge',
+          },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(true);
+      expect(reportedPayload.data.created).toBe(true);
+      expect(reportedPayload.data.name).toBe('nginx-demo-test');
+      expect(inventoryPushed).toBe(true);
+
+      const runCmd = executedCommands.find((c) => c[0] === 'run' && c.includes('--name') && c.includes('nginx-demo-test'));
+      expect(runCmd).toBeDefined();
+      expect(runCmd).toContain('-p');
+      expect(runCmd).toContain('8088:80/tcp');
+      expect(runCmd).toContain('-e');
+      expect(runCmd).toContain('NGINX_PORT=80');
+      expect(runCmd).toContain('--restart');
+      expect(runCmd).toContain('unless-stopped');
+      expect(runCmd).toContain('--network');
+      expect(runCmd).toContain('bridge');
+    });
+
+    it('runner blocks creating container with protected name or existing name collision', async () => {
+      const { mockExec } = createMockDockerExec();
+      let reportedPayload: any = null;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+        if (url.includes('/complete')) {
+          reportedPayload = JSON.parse(opts.body);
+        }
+        return { ok: true, json: async () => ({ success: true }) };
+      });
+
+      // Attempt protected name: jenkins
+      await executeManagementJob(
+        {
+          id: 'job-create-prot',
+          jobType: 'MANAGEMENT',
+          actionType: 'CONTAINER_CREATE',
+          params: {
+            name: 'jenkins',
+            image: 'user-app:1.0',
+          },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/reserved for a protected system container/);
+
+      // Attempt existing name collision: user-app-one
+      await executeManagementJob(
+        {
+          id: 'job-create-collision',
+          jobType: 'MANAGEMENT',
+          actionType: 'CONTAINER_CREATE',
+          params: {
+            name: 'user-app-one',
+            image: 'user-app:1.0',
+          },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(false);
+      expect(reportedPayload.error).toMatch(/already exists in Docker daemon inventory/);
+    });
+
+    it('runner pulls image when not present locally and handles pull failures', async () => {
+      const { mockExec, executedCommands } = createMockDockerExec();
+      let reportedPayload: any = null;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+        if (url.includes('/complete')) {
+          reportedPayload = JSON.parse(opts.body);
+        }
+        return { ok: true, json: async () => ({ success: true }) };
+      });
+
+      // Override mockExec to simulate image inspect failure followed by pull
+      mockExec.mockImplementation(async (args: string[]) => {
+        executedCommands.push(args);
+        const cmdStr = args.join(' ');
+        if (cmdStr.startsWith('ps -a')) {
+          return { stdout: '', stderr: '' };
+        }
+        if (cmdStr.startsWith('images')) {
+          return { stdout: '', stderr: '' };
+        }
+        if (cmdStr.startsWith('network ls') || cmdStr.startsWith('volume ls')) {
+          return { stdout: '', stderr: '' };
+        }
+        if (args[0] === 'image' && args[1] === 'inspect') {
+          throw new Error('No such image: redis:alpine');
+        }
+        if (args[0] === 'pull') {
+          return { stdout: 'Downloaded newer image for redis:alpine\n', stderr: '' };
+        }
+        if (args[0] === 'run') {
+          return { stdout: 'abcdef123456\n', stderr: '' };
+        }
+        return { stdout: '', stderr: '' };
+      });
+
+      await executeManagementJob(
+        {
+          id: 'job-pull-test',
+          jobType: 'MANAGEMENT',
+          actionType: 'CONTAINER_CREATE',
+          params: {
+            name: 'redis-pulled-test',
+            image: 'redis:alpine',
+          },
+        },
+        config,
+        mockLogger,
+        mockFetch as unknown as typeof fetch,
+        mockExec
+      );
+
+      expect(reportedPayload.success).toBe(true);
+      expect(executedCommands.some((c) => c[0] === 'pull' && c.includes('redis:alpine'))).toBe(true);
+      expect(executedCommands.some((c) => c[0] === 'run' && c.includes('redis:alpine'))).toBe(true);
+    });
   });
 });

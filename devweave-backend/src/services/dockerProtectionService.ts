@@ -655,6 +655,139 @@ export function assertImagePruneNotProtected(
   }
 }
 
+export interface CreateContainerCheckParams {
+  name?: string;
+  image: string;
+  ports?: Array<{ hostPort?: number; containerPort: number; protocol?: string }>;
+  env?: Array<{ key: string; value: string }>;
+  envVars?: Array<{ key: string; value: string }>;
+  restartPolicy?: string;
+  network?: string;
+  volumes?: any[];
+}
+
+/**
+ * Validates container creation safety:
+ * - Does NOT require the container to exist in inventory (it is new).
+ * - Enforces Docker naming rules and blocks protected system container names.
+ * - Detects duplicate container names in inventory to prevent accidental name collisions.
+ * - Validates image reference format, ports, environment variables, restart policy, and network.
+ */
+export function assertCanCreateContainer(
+  params: CreateContainerCheckParams,
+  inventory?: DockerInventorySnapshot
+): void {
+  const { name, image, ports, env, envVars, restartPolicy, network } = params;
+
+  // 1. Validate Container Name
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    throw new AppError('Container name is required for container creation.', 400);
+  }
+
+  const cleanName = name.trim().replace(/^\//, '');
+  const CONTAINER_NAME_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9_.-]+$/;
+  if (!CONTAINER_NAME_REGEX.test(cleanName) || cleanName.length < 2 || cleanName.length > 128) {
+    throw new AppError(
+      'Container name must start with an alphanumeric character and contain only alphanumeric characters, underscores, dots, or hyphens (2-128 characters).',
+      400
+    );
+  }
+
+  // Reject protected container names
+  const lowerName = cleanName.toLowerCase();
+  if (PROTECTED_CONTAINERS.has(lowerName)) {
+    throw new AppError(
+      `Operation "CONTAINER_CREATE" rejected: "${cleanName}" is a protected system container name and cannot be used.`,
+      403
+    );
+  }
+  for (const pc of PROTECTED_CONTAINERS) {
+    if (pc === lowerName) {
+      throw new AppError(
+        `Operation "CONTAINER_CREATE" rejected: "${cleanName}" is a protected system container name and cannot be used.`,
+        403
+      );
+    }
+  }
+
+  // Detect duplicate name in live inventory (name collision)
+  if (inventory?.containers) {
+    const existing = inventory.containers.find(
+      (c) => c.name.replace(/^\//, '').toLowerCase() === lowerName
+    );
+    if (existing) {
+      throw new AppError(
+        `Conflict: A container named "${cleanName}" already exists (ID: ${existing.id.substring(0, 12)}).`,
+        409
+      );
+    }
+  }
+
+  // 2. Validate Image Reference
+  if (!image || typeof image !== 'string' || !image.trim()) {
+    throw new AppError('Image reference is required for container creation.', 400);
+  }
+  const cleanImage = image.trim();
+  const IMAGE_REF_REGEX = /^[a-zA-Z0-9_./:-]+(@[a-zA-Z0-9_.:-]+)?$/;
+  if (!IMAGE_REF_REGEX.test(cleanImage)) {
+    throw new AppError(`Invalid image reference format: "${cleanImage}".`, 400);
+  }
+
+  // 3. Validate Port Mappings
+  if (Array.isArray(ports)) {
+    const hostPortsSeen = new Set<number>();
+    for (const p of ports) {
+      if (typeof p.containerPort !== 'number' || p.containerPort < 1 || p.containerPort > 65535) {
+        throw new AppError(`Invalid container port: ${p.containerPort}. Must be between 1 and 65535.`, 400);
+      }
+      if (p.hostPort !== undefined) {
+        if (typeof p.hostPort !== 'number' || p.hostPort < 1 || p.hostPort > 65535) {
+          throw new AppError(`Invalid host port: ${p.hostPort}. Must be between 1 and 65535.`, 400);
+        }
+        if (hostPortsSeen.has(p.hostPort)) {
+          throw new AppError(`Conflicting port mapping: Host port ${p.hostPort} is mapped multiple times in this request.`, 400);
+        }
+        hostPortsSeen.add(p.hostPort);
+      }
+      if (p.protocol && p.protocol !== 'tcp' && p.protocol !== 'udp') {
+        throw new AppError(`Invalid protocol "${p.protocol}". Must be 'tcp' or 'udp'.`, 400);
+      }
+    }
+  }
+
+  // 4. Validate Environment Variables
+  const envList = Array.isArray(envVars) && envVars.length > 0 ? envVars : (Array.isArray(env) ? env : []);
+  const ENV_KEY_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+  for (const ev of envList) {
+    if (typeof ev.key !== 'string' || !ENV_KEY_REGEX.test(ev.key)) {
+      throw new AppError(`Invalid environment variable name "${ev.key}". Must start with a letter/underscore and contain alphanumeric characters or underscores.`, 400);
+    }
+    if (typeof ev.value !== 'string') {
+      throw new AppError(`Invalid value for environment variable "${ev.key}". Value must be a string.`, 400);
+    }
+  }
+
+  // 5. Validate Restart Policy
+  const allowedPolicies = ['no', 'always', 'unless-stopped', 'on-failure'];
+  if (restartPolicy && !allowedPolicies.includes(restartPolicy)) {
+    throw new AppError(`Invalid restart policy "${restartPolicy}". Allowed: ${allowedPolicies.join(', ')}.`, 400);
+  }
+
+  // 6. Validate Network
+  if (network && typeof network === 'string') {
+    const cleanNetwork = network.trim();
+    const standardNetworks = new Set(['bridge', 'host', 'none', 'default']);
+    if (inventory?.networks && !standardNetworks.has(cleanNetwork.toLowerCase())) {
+      const netFound = inventory.networks.some(
+        (n) => n.name.toLowerCase() === cleanNetwork.toLowerCase() || n.id.toLowerCase().startsWith(cleanNetwork.toLowerCase())
+      );
+      if (!netFound) {
+        throw new AppError(`Network "${cleanNetwork}" not found in Docker inventory.`, 400);
+      }
+    }
+  }
+}
+
 export function recordAuditEvent(event: Omit<DockerAuditEvent, 'id' | 'timestamp'>): DockerAuditEvent {
   const fullEvent: DockerAuditEvent = {
     id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,

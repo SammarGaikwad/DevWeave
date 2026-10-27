@@ -4,37 +4,54 @@ import { z } from 'zod';
 const CONTAINER_NAME_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9_.-]+$/;
 
 export const containerPortMappingSchema = z.object({
-  hostPort: z.number().int().min(1).max(65535),
+  hostPort: z.number().int().min(1).max(65535).optional(),
   containerPort: z.number().int().min(1).max(65535),
   protocol: z.enum(['tcp', 'udp']).default('tcp'),
 });
 
 export const containerEnvVarSchema = z.object({
-  key: z.string().min(1).regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/),
+  key: z.string().min(1).regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, {
+    message: 'Environment variable name must start with a letter or underscore and contain only alphanumeric characters or underscores.',
+  }),
   value: z.string(),
 });
 
 export const containerVolumeMountSchema = z.object({
-  hostPathOrVolume: z.string().min(1),
+  hostVolumeOrPath: z.string().optional(),
+  hostPathOrVolume: z.string().optional(),
   containerPath: z.string().min(1),
-  readOnly: z.boolean().default(false),
+  mode: z.enum(['ro', 'rw']).optional(),
+  readOnly: z.boolean().optional(),
 });
 
-export const containerCreateSchema = z.object({
+export const baseContainerCreateSchema = z.object({
   name: z.string().min(2).max(128).regex(CONTAINER_NAME_REGEX, {
     message: 'Container name must start with an alphanumeric character and contain only alphanumeric, underscores, dots, or hyphens.',
   }),
-  image: z.string().min(1),
+  image: z.string().min(1, 'Image reference is required.').regex(/^[a-zA-Z0-9_./:-]+(@[a-zA-Z0-9_.:-]+)?$/, {
+    message: 'Image reference format is invalid.',
+  }),
   ports: z.array(containerPortMappingSchema).default([]),
-  env: z.array(containerEnvVarSchema).default([]),
+  env: z.array(containerEnvVarSchema).optional().default([]),
+  envVars: z.array(containerEnvVarSchema).optional().default([]),
   restartPolicy: z.enum(['no', 'always', 'unless-stopped', 'on-failure']).default('unless-stopped'),
   volumes: z.array(containerVolumeMountSchema).default([]),
   network: z.string().optional(),
+  command: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
+export const containerCreateSchema = baseContainerCreateSchema.transform((data) => {
+  const envVars = data.envVars && data.envVars.length > 0 ? data.envVars : data.env;
+  return {
+    ...data,
+    envVars,
+    env: envVars,
+  };
 });
 
 export const containerRecreateSchema = z.object({
   containerId: z.string().min(1),
-  newConfig: containerCreateSchema.partial().optional(),
+  newConfig: baseContainerCreateSchema.partial().optional(),
 });
 
 export const containerActionSchema = z.object({

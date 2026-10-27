@@ -185,7 +185,8 @@ export async function createContainer(
     const result = await executeManagementAction(
       'CONTAINER_CREATE',
       parsed,
-      { id: req.user!.id }
+      { id: req.user!.id },
+      60_000
     );
     res.status(201).json({ success: true, message: `Container "${parsed.name}" created successfully.`, data: result });
   } catch (error) {

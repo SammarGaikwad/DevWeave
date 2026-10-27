@@ -3,9 +3,12 @@ import { AppError } from '../middleware/errorHandler.js';
 import {
   isResourceProtected,
   assertResourceNotProtected,
+  assertCanCreateContainer,
   assertNetworkDisconnectNotProtected,
   assertImagePruneNotProtected,
   recordAuditEvent,
+  PROTECTED_CONTAINERS,
+  resolveContainer,
 } from './dockerProtectionService.js';
 import { getRunnerSnapshot } from './dockerRunnerService.js';
 
@@ -310,6 +313,7 @@ function validateActionProtection(
   const isInventoryAvailable = inventory && inventory.updatedAt !== new Date(0).toISOString();
 
   switch (actionType) {
+    case 'CONTAINER_START':
     case 'CONTAINER_STOP':
     case 'CONTAINER_DELETE':
     case 'CONTAINER_RESTART': {
@@ -338,16 +342,34 @@ function validateActionProtection(
 
       const newName = params.name || params.newConfig?.name;
       if (newName) {
-        assertResourceNotProtected('container', newName, actionType, inventory);
+        const cleanNewName = newName.trim().replace(/^\//, '').toLowerCase();
+        if (PROTECTED_CONTAINERS.has(cleanNewName)) {
+          throw new AppError(
+            `Operation "${actionType}" rejected: "${newName}" is a protected system container name and cannot be used.`,
+            403
+          );
+        }
+        if (inventory?.containers) {
+          const res = resolveContainer(containerId, inventory.containers);
+          const targetName = res.resolved ? res.resolved.name.replace(/^\//, '').toLowerCase() : '';
+          if (cleanNewName !== targetName) {
+            const conflict = inventory.containers.find(
+              (c) => c.name.replace(/^\//, '').toLowerCase() === cleanNewName
+            );
+            if (conflict) {
+              throw new AppError(
+                `Conflict: A container named "${newName}" already exists (ID: ${conflict.id.substring(0, 12)}).`,
+                409
+              );
+            }
+          }
+        }
       }
       break;
     }
 
     case 'CONTAINER_CREATE': {
-      const name = params.name;
-      if (name) {
-        assertResourceNotProtected('container', name, actionType, inventory);
-      }
+      assertCanCreateContainer(params as any, inventory);
       break;
     }
 
