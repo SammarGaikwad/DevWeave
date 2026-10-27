@@ -9,6 +9,7 @@ import type {
 import { K8sYamlModal } from './K8sYamlModal';
 import { K8sConfirmModal } from './K8sConfirmModal';
 import { K8sCreateServiceModal } from './K8sCreateServiceModal';
+import { K8sCreateIngressModal } from './K8sCreateIngressModal';
 
 interface K8sNetworkingManagerProps {
   services: K8sServiceSummary[];
@@ -37,6 +38,7 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
 }) => {
   const [subTab, setSubTab] = useState<'services' | 'ingresses' | 'networkpolicies'>('services');
   const [isCreateServiceOpen, setIsCreateServiceOpen] = useState<boolean>(false);
+  const [isCreateIngressOpen, setIsCreateIngressOpen] = useState<boolean>(false);
 
   const [yamlModal, setYamlModal] = useState<{
     isOpen: boolean;
@@ -135,18 +137,38 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
         </div>
 
         <div className="flex items-center space-x-2 shrink-0">
-          <button
-            onClick={() => setIsCreateServiceOpen(true)}
-            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create Service</span>
-          </button>
+          {subTab === 'services' && (
+            <button
+              onClick={() => setIsCreateServiceOpen(true)}
+              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Service</span>
+            </button>
+          )}
+          {subTab === 'ingresses' && (
+            <button
+              onClick={() => setIsCreateIngressOpen(true)}
+              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Ingress</span>
+            </button>
+          )}
+          {subTab === 'networkpolicies' && onNavigateToEditor && (
+            <button
+              onClick={() => onNavigateToEditor('networkpolicy')}
+              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Policy (YAML)</span>
+            </button>
+          )}
           {onNavigateToEditor && (
             <button
-              onClick={() => onNavigateToEditor('service')}
+              onClick={() => onNavigateToEditor(subTab === 'services' ? 'service' : subTab === 'ingresses' ? 'ingress' : 'networkpolicy')}
               className="px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition flex items-center space-x-1.5"
-              title="Open Manifest & YAML Editor with Service blueprint"
+              title="Open Manifest & YAML Editor"
             >
               <FileCode className="w-3.5 h-3.5 text-slate-400" />
               <span>YAML Blueprint</span>
@@ -442,6 +464,21 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
         onOpenYamlEditor={(yaml) => {
           if (onNavigateToEditor) {
             onNavigateToEditor('service', yaml);
+          }
+        }}
+      />
+
+      <K8sCreateIngressModal
+        isOpen={isCreateIngressOpen}
+        onClose={() => setIsCreateIngressOpen(false)}
+        onSuccess={() => {
+          onRefresh();
+        }}
+        namespaces={namespaces}
+        services={services}
+        onOpenYamlEditor={(yaml) => {
+          if (onNavigateToEditor) {
+            onNavigateToEditor('ingress', yaml);
           }
         }}
       />

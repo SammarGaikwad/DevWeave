@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Server,
+  Info,
 } from 'lucide-react';
 import type {
   K8sNodeSummary,
@@ -17,6 +18,7 @@ import type {
 import { K8sCreateNamespaceModal } from './K8sCreateNamespaceModal';
 import { K8sConfirmModal } from './K8sConfirmModal';
 import { K8sYamlModal } from './K8sYamlModal';
+import { K8sNodeDetailModal } from './K8sNodeDetailModal';
 
 interface K8sClusterManagerProps {
   nodes: K8sNodeSummary[];
@@ -39,6 +41,7 @@ export const K8sClusterManager: React.FC<K8sClusterManagerProps> = ({
 }) => {
   const [subTab, setSubTab] = useState<'nodes' | 'namespaces' | 'events'>('nodes');
   const [createNsOpen, setCreateNsOpen] = useState<boolean>(false);
+  const [selectedNode, setSelectedNode] = useState<K8sNodeSummary | null>(null);
 
   const [yamlModal, setYamlModal] = useState<{
     isOpen: boolean;
@@ -202,19 +205,28 @@ export const K8sClusterManager: React.FC<K8sClusterManagerProps> = ({
                       </td>
                       <td className="px-4 py-3 text-slate-400 text-xs font-sans">{n.age}</td>
                       <td className="px-4 py-3 text-right font-sans">
-                        <button
-                          onClick={() =>
-                            setYamlModal({
-                              isOpen: true,
-                              kind: 'Node',
-                              name: n.name,
-                            })
-                          }
-                          title="Describe Node"
-                          className="p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded transition"
-                        >
-                          <FileCode className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center justify-end space-x-1.5">
+                          <button
+                            onClick={() => setSelectedNode(n)}
+                            title="Inspect Node Details & Conditions"
+                            className="p-1 text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded transition"
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() =>
+                              setYamlModal({
+                                isOpen: true,
+                                kind: 'Node',
+                                name: n.name,
+                              })
+                            }
+                            title="Describe Node"
+                            className="p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded transition"
+                          >
+                            <FileCode className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -393,6 +405,12 @@ export const K8sClusterManager: React.FC<K8sClusterManagerProps> = ({
         isLoading={actionLoading}
         onConfirm={handleConfirmDeleteNs}
         onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false, errorMessage: null }))}
+      />
+
+      <K8sNodeDetailModal
+        node={selectedNode}
+        isOpen={selectedNode !== null}
+        onClose={() => setSelectedNode(null)}
       />
     </div>
   );

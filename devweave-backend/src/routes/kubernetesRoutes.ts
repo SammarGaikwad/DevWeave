@@ -18,6 +18,13 @@ import {
   deleteNamespace,
   revealSecret,
   createService,
+  createDeployment,
+  createConfigMap,
+  createSecret,
+  createPvc,
+  createIngress,
+  suspendCronJob,
+  triggerCronJob,
 } from '../controllers/kubernetesController.js';
 import { authenticate } from '../middleware/authenticate.js';
 
@@ -63,5 +70,18 @@ router.post('/secrets/reveal', revealSecret);
 
 // Service Management
 router.post('/services', createService);
+
+// Workload Creation & Management
+router.post('/deployments', createDeployment);
+router.post('/cronjobs/suspend', suspendCronJob);
+router.post('/cronjobs/trigger', triggerCronJob);
+
+// Configuration & Storage Creation
+router.post('/configmaps', createConfigMap);
+router.post('/secrets', createSecret);
+router.post('/pvcs', createPvc);
+
+// Networking Creation
+router.post('/ingresses', createIngress);
 
 export default router;

@@ -27,6 +27,13 @@ import {
   k8sCreateNamespaceSchema,
   k8sRevealSecretSchema,
   k8sCreateServiceSchema,
+  k8sCreateDeploymentSchema,
+  k8sCreateConfigMapSchema,
+  k8sCreateSecretSchema,
+  k8sCreatePvcSchema,
+  k8sCreateIngressSchema,
+  k8sCronJobSuspendSchema,
+  k8sCronJobTriggerSchema,
 } from '../schemas/kubernetesSchema.js';
 
 const generateK8sSchema = z.object({
@@ -504,6 +511,396 @@ export async function createService(
         namespace: parsed.namespace,
         output: result?.output || 'Service created.',
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createDeployment(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const parsed = k8sCreateDeploymentSchema.parse(req.body);
+    const deployObj = {
+      apiVersion: 'apps/v1',
+      kind: 'Deployment',
+      metadata: {
+        name: parsed.name,
+        namespace: parsed.namespace,
+        labels: {
+          app: parsed.name,
+          'app.kubernetes.io/name': parsed.name,
+          'app.kubernetes.io/managed-by': 'devweave',
+          ...(parsed.labels || {}),
+        },
+      },
+      spec: {
+        replicas: parsed.replicas,
+        selector: {
+          matchLabels: {
+            app: parsed.name,
+          },
+        },
+        template: {
+          metadata: {
+            labels: {
+              app: parsed.name,
+              ...(parsed.labels || {}),
+            },
+          },
+          spec: {
+            containers: [
+              {
+                name: 'app',
+                image: parsed.image,
+                ports: [{ containerPort: parsed.port, name: 'http' }],
+                resources: {
+                  requests: {
+                    cpu: parsed.cpuRequest,
+                    memory: parsed.memoryRequest,
+                  },
+                  limits: {
+                    cpu: parsed.cpuLimit,
+                    memory: parsed.memoryLimit,
+                  },
+                },
+                env: parsed.env && parsed.env.length > 0 ? parsed.env : undefined,
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const manifestYaml = YAML.stringify(deployObj);
+    const validation = validateK8sYaml(manifestYaml);
+    if (!validation.valid) {
+      res.status(400).json({
+        success: false,
+        message: 'Generated Deployment manifest validation failed.',
+        errors: validation.errors,
+      });
+      return;
+    }
+
+    const result = await executeKubernetesAction(
+      'K8S_APPLY_MANIFEST',
+      { yaml: manifestYaml, namespace: parsed.namespace },
+      { id: req.user!.id },
+      30_000
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `Deployment "${parsed.name}" created successfully in namespace "${parsed.namespace}".`,
+      data: {
+        created: true,
+        name: parsed.name,
+        namespace: parsed.namespace,
+        output: result?.output || 'Deployment created.',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createConfigMap(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const parsed = k8sCreateConfigMapSchema.parse(req.body);
+    const cmObj = {
+      apiVersion: 'v1',
+      kind: 'ConfigMap',
+      metadata: {
+        name: parsed.name,
+        namespace: parsed.namespace,
+        labels: {
+          'app.kubernetes.io/managed-by': 'devweave',
+        },
+      },
+      data: parsed.data,
+    };
+
+    const manifestYaml = YAML.stringify(cmObj);
+    const validation = validateK8sYaml(manifestYaml);
+    if (!validation.valid) {
+      res.status(400).json({
+        success: false,
+        message: 'Generated ConfigMap validation failed.',
+        errors: validation.errors,
+      });
+      return;
+    }
+
+    const result = await executeKubernetesAction(
+      'K8S_APPLY_MANIFEST',
+      { yaml: manifestYaml, namespace: parsed.namespace },
+      { id: req.user!.id },
+      30_000
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `ConfigMap "${parsed.name}" created successfully in namespace "${parsed.namespace}".`,
+      data: {
+        created: true,
+        name: parsed.name,
+        namespace: parsed.namespace,
+        output: result?.output || 'ConfigMap created.',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createSecret(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const parsed = k8sCreateSecretSchema.parse(req.body);
+    const encodedData: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed.data)) {
+      encodedData[k] = Buffer.from(v, 'utf8').toString('base64');
+    }
+
+    const secretObj = {
+      apiVersion: 'v1',
+      kind: 'Secret',
+      metadata: {
+        name: parsed.name,
+        namespace: parsed.namespace,
+        labels: {
+          'app.kubernetes.io/managed-by': 'devweave',
+        },
+      },
+      type: parsed.type,
+      data: encodedData,
+    };
+
+    const manifestYaml = YAML.stringify(secretObj);
+    const validation = validateK8sYaml(manifestYaml);
+    if (!validation.valid) {
+      res.status(400).json({
+        success: false,
+        message: 'Generated Secret validation failed.',
+        errors: validation.errors,
+      });
+      return;
+    }
+
+    const result = await executeKubernetesAction(
+      'K8S_APPLY_MANIFEST',
+      { yaml: manifestYaml, namespace: parsed.namespace },
+      { id: req.user!.id },
+      30_000
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `Secret "${parsed.name}" created successfully in namespace "${parsed.namespace}".`,
+      data: {
+        created: true,
+        name: parsed.name,
+        namespace: parsed.namespace,
+        output: result?.output || 'Secret created.',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createPvc(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const parsed = k8sCreatePvcSchema.parse(req.body);
+    const pvcObj: any = {
+      apiVersion: 'v1',
+      kind: 'PersistentVolumeClaim',
+      metadata: {
+        name: parsed.name,
+        namespace: parsed.namespace,
+        labels: {
+          'app.kubernetes.io/managed-by': 'devweave',
+        },
+      },
+      spec: {
+        accessModes: parsed.accessModes,
+        resources: {
+          requests: {
+            storage: parsed.storage,
+          },
+        },
+      },
+    };
+    if (parsed.storageClass) {
+      pvcObj.spec.storageClassName = parsed.storageClass;
+    }
+
+    const manifestYaml = YAML.stringify(pvcObj);
+    const validation = validateK8sYaml(manifestYaml);
+    if (!validation.valid) {
+      res.status(400).json({
+        success: false,
+        message: 'Generated PVC validation failed.',
+        errors: validation.errors,
+      });
+      return;
+    }
+
+    const result = await executeKubernetesAction(
+      'K8S_APPLY_MANIFEST',
+      { yaml: manifestYaml, namespace: parsed.namespace },
+      { id: req.user!.id },
+      30_000
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `PersistentVolumeClaim "${parsed.name}" created successfully in namespace "${parsed.namespace}".`,
+      data: {
+        created: true,
+        name: parsed.name,
+        namespace: parsed.namespace,
+        output: result?.output || 'PVC created.',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createIngress(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const parsed = k8sCreateIngressSchema.parse(req.body);
+    const ingressObj = {
+      apiVersion: 'networking.k8s.io/v1',
+      kind: 'Ingress',
+      metadata: {
+        name: parsed.name,
+        namespace: parsed.namespace,
+        labels: {
+          'app.kubernetes.io/managed-by': 'devweave',
+        },
+      },
+      spec: {
+        ingressClassName: parsed.ingressClassName,
+        rules: [
+          {
+            host: parsed.host,
+            http: {
+              paths: [
+                {
+                  path: parsed.path,
+                  pathType: 'Prefix',
+                  backend: {
+                    service: {
+                      name: parsed.serviceName,
+                      port: {
+                        number: parsed.servicePort,
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
+
+    const manifestYaml = YAML.stringify(ingressObj);
+    const validation = validateK8sYaml(manifestYaml);
+    if (!validation.valid) {
+      res.status(400).json({
+        success: false,
+        message: 'Generated Ingress validation failed.',
+        errors: validation.errors,
+      });
+      return;
+    }
+
+    const result = await executeKubernetesAction(
+      'K8S_APPLY_MANIFEST',
+      { yaml: manifestYaml, namespace: parsed.namespace },
+      { id: req.user!.id },
+      30_000
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `Ingress "${parsed.name}" created successfully in namespace "${parsed.namespace}".`,
+      data: {
+        created: true,
+        name: parsed.name,
+        namespace: parsed.namespace,
+        output: result?.output || 'Ingress created.',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function suspendCronJob(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const parsed = k8sCronJobSuspendSchema.parse(req.body);
+    const result = await executeKubernetesAction(
+      'K8S_PATCH_CRONJOB_SUSPEND',
+      parsed,
+      { id: req.user!.id },
+      20_000
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `CronJob "${parsed.name}" ${parsed.suspend ? 'suspended' : 'resumed'} successfully.`,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function triggerCronJob(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const parsed = k8sCronJobTriggerSchema.parse(req.body);
+    const result = await executeKubernetesAction(
+      'K8S_TRIGGER_CRONJOB',
+      parsed,
+      { id: req.user!.id },
+      25_000
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `CronJob "${parsed.name}" triggered manual job "${result.jobName}" successfully.`,
+      data: result,
     });
   } catch (error) {
     next(error);

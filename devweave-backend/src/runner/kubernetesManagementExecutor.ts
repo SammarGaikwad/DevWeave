@@ -608,6 +608,28 @@ export async function executeKubernetesJob(
         throw new Error(`Key "${key}" not found in secret "${name}".`);
       }
 
+      case 'K8S_PATCH_CRONJOB_SUSPEND': {
+        const { name, namespace, suspend } = params;
+        const patchJson = JSON.stringify({ spec: { suspend: Boolean(suspend) } });
+        const args = ['patch', 'cronjob', name, '-p', patchJson];
+        if (namespace) {
+          args.push('-n', namespace);
+        }
+        const { stdout, stderr } = await execFn('kubectl', args, { timeout: 15000 });
+        return { success: true, data: { suspended: Boolean(suspend), output: stdout || stderr } };
+      }
+
+      case 'K8S_TRIGGER_CRONJOB': {
+        const { name, namespace, jobName } = params;
+        const actualJobName = jobName || `${name}-manual-${Date.now().toString(36)}`;
+        const args = ['create', 'job', actualJobName, `--from=cronjob/${name}`];
+        if (namespace) {
+          args.push('-n', namespace);
+        }
+        const { stdout, stderr } = await execFn('kubectl', args, { timeout: 20000 });
+        return { success: true, data: { triggered: true, jobName: actualJobName, output: stdout || stderr } };
+      }
+
       default:
         throw new Error(`Unsupported Kubernetes action type "${actionType}".`);
     }

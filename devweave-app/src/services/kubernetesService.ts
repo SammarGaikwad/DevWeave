@@ -444,6 +444,62 @@ export const kubernetesService = {
     );
     return res.data;
   },
+
+  async createDeployment(input: K8sCreateDeploymentInput): Promise<{ created: boolean; name: string; namespace: string; output: string }> {
+    const res = await apiClient.post<{ success: boolean; data: { created: boolean; name: string; namespace: string; output: string } }>(
+      '/v1/kubernetes/deployments',
+      input
+    );
+    return res.data;
+  },
+
+  async createConfigMap(input: K8sCreateConfigMapInput): Promise<{ created: boolean; name: string; namespace: string; output: string }> {
+    const res = await apiClient.post<{ success: boolean; data: { created: boolean; name: string; namespace: string; output: string } }>(
+      '/v1/kubernetes/configmaps',
+      input
+    );
+    return res.data;
+  },
+
+  async createSecret(input: K8sCreateSecretInput): Promise<{ created: boolean; name: string; namespace: string; output: string }> {
+    const res = await apiClient.post<{ success: boolean; data: { created: boolean; name: string; namespace: string; output: string } }>(
+      '/v1/kubernetes/secrets',
+      input
+    );
+    return res.data;
+  },
+
+  async createPvc(input: K8sCreatePvcInput): Promise<{ created: boolean; name: string; namespace: string; output: string }> {
+    const res = await apiClient.post<{ success: boolean; data: { created: boolean; name: string; namespace: string; output: string } }>(
+      '/v1/kubernetes/pvcs',
+      input
+    );
+    return res.data;
+  },
+
+  async createIngress(input: K8sCreateIngressInput): Promise<{ created: boolean; name: string; namespace: string; output: string }> {
+    const res = await apiClient.post<{ success: boolean; data: { created: boolean; name: string; namespace: string; output: string } }>(
+      '/v1/kubernetes/ingresses',
+      input
+    );
+    return res.data;
+  },
+
+  async suspendCronJob(namespace: string, name: string, suspend: boolean): Promise<{ suspended: boolean; output: string }> {
+    const res = await apiClient.post<{ success: boolean; data: { suspended: boolean; output: string } }>(
+      '/v1/kubernetes/cronjobs/suspend',
+      { namespace, name, suspend }
+    );
+    return res.data;
+  },
+
+  async triggerCronJob(namespace: string, name: string, jobName?: string): Promise<{ triggered: boolean; jobName: string; output: string }> {
+    const res = await apiClient.post<{ success: boolean; data: { triggered: boolean; jobName: string; output: string } }>(
+      '/v1/kubernetes/cronjobs/trigger',
+      { namespace, name, jobName }
+    );
+    return res.data;
+  },
 };
 
 export interface K8sCreateServiceInput {
@@ -455,4 +511,49 @@ export interface K8sCreateServiceInput {
   targetPort: number | string;
   protocol?: 'TCP' | 'UDP' | 'SCTP';
   portName?: string;
+}
+
+export interface K8sCreateDeploymentInput {
+  name: string;
+  namespace: string;
+  image: string;
+  replicas?: number;
+  port?: number;
+  cpuRequest?: string;
+  cpuLimit?: string;
+  memoryRequest?: string;
+  memoryLimit?: string;
+  env?: Array<{ name: string; value: string }>;
+  labels?: Record<string, string>;
+}
+
+export interface K8sCreateConfigMapInput {
+  name: string;
+  namespace: string;
+  data: Record<string, string>;
+}
+
+export interface K8sCreateSecretInput {
+  name: string;
+  namespace: string;
+  type?: 'Opaque' | 'kubernetes.io/tls' | 'kubernetes.io/basic-auth';
+  data: Record<string, string>;
+}
+
+export interface K8sCreatePvcInput {
+  name: string;
+  namespace: string;
+  storageClass?: string;
+  accessModes?: Array<'ReadWriteOnce' | 'ReadOnlyMany' | 'ReadWriteMany'>;
+  storage?: string;
+}
+
+export interface K8sCreateIngressInput {
+  name: string;
+  namespace: string;
+  ingressClassName?: string;
+  host: string;
+  path?: string;
+  serviceName: string;
+  servicePort: number;
 }

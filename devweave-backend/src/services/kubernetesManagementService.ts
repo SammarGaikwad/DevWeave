@@ -234,7 +234,9 @@ export type KubernetesActionType =
   | 'K8S_GET_RESOURCE_YAML'
   | 'K8S_CREATE_NAMESPACE'
   | 'K8S_DELETE_NAMESPACE'
-  | 'K8S_REVEAL_SECRET';
+  | 'K8S_REVEAL_SECRET'
+  | 'K8S_PATCH_CRONJOB_SUSPEND'
+  | 'K8S_TRIGGER_CRONJOB';
 
 export interface KubernetesManagementJob {
   id: string;

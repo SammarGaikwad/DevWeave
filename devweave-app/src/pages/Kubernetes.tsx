@@ -439,6 +439,7 @@ export const Kubernetes: React.FC = () => {
           onDelete={handleDeleteResource}
           onRefresh={() => fetchData(true)}
           onNavigateToEditor={handleOpenEditorWithBlueprint}
+          namespaces={namespaceOptions}
         />
       )}
 
@@ -470,6 +471,7 @@ export const Kubernetes: React.FC = () => {
           onDelete={handleDeleteResource}
           onRefresh={() => fetchData(true)}
           onNavigateToEditor={handleOpenEditorWithBlueprint}
+          namespaces={namespaceOptions}
         />
       )}
 

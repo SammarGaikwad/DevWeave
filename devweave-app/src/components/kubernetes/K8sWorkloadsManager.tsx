@@ -7,20 +7,25 @@ import {
   FileCode,
   Trash2,
   Plus,
+  Play,
+  Pause,
+  Clock,
 } from 'lucide-react';
-import type {
-  K8sDeploymentSummary,
-  K8sPodSummary,
-  K8sStatefulSetSummary,
-  K8sDaemonSetSummary,
-  K8sJobSummary,
-  K8sCronJobSummary,
-  K8sReplicaSetSummary,
+import {
+  kubernetesService,
+  type K8sDeploymentSummary,
+  type K8sPodSummary,
+  type K8sStatefulSetSummary,
+  type K8sDaemonSetSummary,
+  type K8sJobSummary,
+  type K8sCronJobSummary,
+  type K8sReplicaSetSummary,
 } from '../../services/kubernetesService';
 import { K8sScaleModal } from './K8sScaleModal';
 import { K8sLogsModal } from './K8sLogsModal';
 import { K8sYamlModal } from './K8sYamlModal';
 import { K8sConfirmModal } from './K8sConfirmModal';
+import { K8sCreateDeploymentModal } from './K8sCreateDeploymentModal';
 
 interface K8sWorkloadsManagerProps {
   deployments: K8sDeploymentSummary[];
@@ -36,7 +41,8 @@ interface K8sWorkloadsManagerProps {
   onRestart: (kind: string, name: string, namespace: string) => Promise<void>;
   onDelete: (kind: string, name: string, namespace: string) => Promise<void>;
   onRefresh: () => void;
-  onNavigateToEditor?: (blueprintId?: string) => void;
+  onNavigateToEditor?: (blueprintId?: string, initialYaml?: string) => void;
+  namespaces?: string[];
 }
 
 export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
@@ -54,10 +60,13 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
   onDelete,
   onRefresh,
   onNavigateToEditor,
+  namespaces = ['default'],
 }) => {
   const [subTab, setSubTab] = useState<
     'deployments' | 'pods' | 'statefulsets' | 'daemonsets' | 'jobs' | 'cronjobs' | 'replicasets'
   >('deployments');
+  const [isCreateDeploymentOpen, setIsCreateDeploymentOpen] = useState<boolean>(false);
+  const [cronJobLoading, setCronJobLoading] = useState<string | null>(null);
 
   // Modal States
   const [scaleModal, setScaleModal] = useState<{
@@ -157,6 +166,44 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
     }
   };
 
+  const handleToggleSuspendCronJob = async (cj: K8sCronJobSummary) => {
+    setCronJobLoading(cj.name);
+    try {
+      await kubernetesService.suspendCronJob(cj.namespace, cj.name, !cj.suspend);
+      onRefresh();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Failed to update CronJob suspend state');
+    } finally {
+      setCronJobLoading(null);
+    }
+  };
+
+  const handleTriggerCronJob = async (cj: K8sCronJobSummary) => {
+    setCronJobLoading(cj.name);
+    try {
+      await kubernetesService.triggerCronJob(cj.namespace, cj.name);
+      onRefresh();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Failed to trigger CronJob execution');
+    } finally {
+      setCronJobLoading(null);
+    }
+  };
+
+  const handleOpenJobLogs = (j: K8sJobSummary) => {
+    const jobPod = pods.find((p) => p.namespace === j.namespace && p.name.startsWith(j.name));
+    if (jobPod) {
+      setLogsModal({
+        isOpen: true,
+        namespace: jobPod.namespace,
+        podName: jobPod.name,
+        containers: jobPod.containers || [{ name: j.name }],
+      });
+    } else {
+      alert(`No active pods found in current inventory for Job "${j.name}". If completed, pod may have been cleaned up.`);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Sub tabs navigation */}
@@ -234,15 +281,25 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
           </button>
         </div>
 
-        {onNavigateToEditor && (
+        <div className="flex items-center space-x-2 shrink-0">
           <button
-            onClick={() => onNavigateToEditor('deployment')}
-            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30 shrink-0"
+            onClick={() => setIsCreateDeploymentOpen(true)}
+            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
           >
             <Plus className="w-4 h-4" />
             <span>Deploy Workload</span>
           </button>
-        )}
+          {onNavigateToEditor && (
+            <button
+              onClick={() => onNavigateToEditor('deployment')}
+              className="px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition flex items-center space-x-1.5"
+              title="Open Manifest & YAML Editor with Deployment blueprint"
+            >
+              <FileCode className="w-3.5 h-3.5 text-slate-400" />
+              <span>YAML Blueprint</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Deployments Table */}
@@ -267,19 +324,17 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
                       No application deployments found in namespace &quot;{selectedNamespace}&quot;.
                     </p>
                     <p className="text-xs text-slate-500 max-w-md mx-auto">
-                      System services reside in &apos;kube-system&apos;. To launch your first workload in DevWeave, open the Manifest Studio.
+                      Launch a containerized workload with replicas, container ports, and resource quotas.
                     </p>
-                    {onNavigateToEditor && (
-                      <div className="pt-2">
-                        <button
-                          onClick={() => onNavigateToEditor('deployment')}
-                          className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition inline-flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span>Deploy First Workload</span>
-                        </button>
-                      </div>
-                    )}
+                    <div className="pt-2">
+                      <button
+                        onClick={() => setIsCreateDeploymentOpen(true)}
+                        className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition inline-flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Deploy First Workload</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -549,6 +604,22 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
                         </button>
                         <button
                           onClick={() =>
+                            setConfirmModal({
+                              isOpen: true,
+                              title: `Rollout Restart StatefulSet`,
+                              description: `Trigger rolling restart for StatefulSet "${ss.name}" in namespace "${ss.namespace}"?`,
+                              actionLabel: 'Rollout Restart',
+                              isDestructive: false,
+                              target: { kind: 'StatefulSet', name: ss.name, namespace: ss.namespace, action: 'restart' },
+                            })
+                          }
+                          title="Rollout Restart StatefulSet"
+                          className="p-1 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded transition"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() =>
                             setYamlModal({
                               isOpen: true,
                               kind: 'StatefulSet',
@@ -622,6 +693,22 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
                       <div className="flex items-center justify-end space-x-1.5">
                         <button
                           onClick={() =>
+                            setConfirmModal({
+                              isOpen: true,
+                              title: `Rollout Restart DaemonSet`,
+                              description: `Trigger rolling restart for DaemonSet "${ds.name}" across all nodes in namespace "${ds.namespace}"?`,
+                              actionLabel: 'Rollout Restart',
+                              isDestructive: false,
+                              target: { kind: 'DaemonSet', name: ds.name, namespace: ds.namespace, action: 'restart' },
+                            })
+                          }
+                          title="Rollout Restart DaemonSet"
+                          className="p-1 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded transition"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() =>
                             setYamlModal({
                               isOpen: true,
                               kind: 'DaemonSet',
@@ -691,6 +778,13 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
                     <td className="px-4 py-3 text-slate-400 font-sans">{j.age}</td>
                     <td className="px-4 py-3 text-right font-sans">
                       <div className="flex items-center justify-end space-x-1.5">
+                        <button
+                          onClick={() => handleOpenJobLogs(j)}
+                          title="View Job Pod Logs"
+                          className="p-1 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded transition"
+                        >
+                          <Terminal className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() =>
                             setYamlModal({
@@ -764,6 +858,26 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
                     <td className="px-4 py-3 text-slate-400 font-sans">{cj.age}</td>
                     <td className="px-4 py-3 text-right font-sans">
                       <div className="flex items-center justify-end space-x-1.5">
+                        <button
+                          onClick={() => handleToggleSuspendCronJob(cj)}
+                          disabled={cronJobLoading === cj.name}
+                          title={cj.suspend ? 'Resume CronJob' : 'Suspend CronJob'}
+                          className={`p-1 rounded transition ${
+                            cj.suspend
+                              ? 'text-emerald-400 hover:text-emerald-300 hover:bg-slate-800'
+                              : 'text-amber-400 hover:text-amber-300 hover:bg-slate-800'
+                          }`}
+                        >
+                          {cj.suspend ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          onClick={() => handleTriggerCronJob(cj)}
+                          disabled={cronJobLoading === cj.name}
+                          title="Trigger Run Now"
+                          className="p-1 text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded transition"
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() =>
                             setYamlModal({
@@ -917,6 +1031,14 @@ export const K8sWorkloadsManager: React.FC<K8sWorkloadsManagerProps> = ({
         isLoading={actionLoading}
         onConfirm={handleConfirmAction}
         onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false, errorMessage: null }))}
+      />
+
+      <K8sCreateDeploymentModal
+        isOpen={isCreateDeploymentOpen}
+        onClose={() => setIsCreateDeploymentOpen(false)}
+        onSuccess={() => onRefresh()}
+        namespaces={namespaces}
+        onOpenYamlEditor={(yaml) => onNavigateToEditor && onNavigateToEditor('deployment', yaml)}
       />
     </div>
   );

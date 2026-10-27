@@ -24,6 +24,9 @@ import {
 } from '../../services/kubernetesService';
 import { K8sYamlModal } from './K8sYamlModal';
 import { K8sConfirmModal } from './K8sConfirmModal';
+import { K8sCreateConfigMapModal } from './K8sCreateConfigMapModal';
+import { K8sCreateSecretModal } from './K8sCreateSecretModal';
+import { K8sCreatePvcModal } from './K8sCreatePvcModal';
 
 interface K8sConfigStorageManagerProps {
   configMaps: K8sConfigMapSummary[];
@@ -36,7 +39,8 @@ interface K8sConfigStorageManagerProps {
   searchTerm: string;
   onDelete: (kind: string, name: string, namespace: string) => Promise<void>;
   onRefresh: () => void;
-  onNavigateToEditor?: (blueprintId?: string) => void;
+  onNavigateToEditor?: (blueprintId?: string, initialYaml?: string) => void;
+  namespaces?: string[];
 }
 
 export const K8sConfigStorageManager: React.FC<K8sConfigStorageManagerProps> = ({
@@ -51,10 +55,15 @@ export const K8sConfigStorageManager: React.FC<K8sConfigStorageManagerProps> = (
   onDelete,
   onRefresh,
   onNavigateToEditor,
+  namespaces = ['default'],
 }) => {
   const [subTab, setSubTab] = useState<
     'configmaps' | 'secrets' | 'pvcs' | 'pvs' | 'storageclasses' | 'serviceaccounts'
   >('configmaps');
+
+  const [isCreateConfigMapOpen, setIsCreateConfigMapOpen] = useState<boolean>(false);
+  const [isCreateSecretOpen, setIsCreateSecretOpen] = useState<boolean>(false);
+  const [isCreatePvcOpen, setIsCreatePvcOpen] = useState<boolean>(false);
 
   const [yamlModal, setYamlModal] = useState<{
     isOpen: boolean;
@@ -226,15 +235,72 @@ export const K8sConfigStorageManager: React.FC<K8sConfigStorageManagerProps> = (
           </button>
         </div>
 
-        {onNavigateToEditor && (
-          <button
-            onClick={() => onNavigateToEditor('configmap')}
-            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30 shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create Config / Secret</span>
-          </button>
-        )}
+        <div className="flex items-center space-x-2 shrink-0">
+          {subTab === 'configmaps' && (
+            <button
+              onClick={() => setIsCreateConfigMapOpen(true)}
+              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create ConfigMap</span>
+            </button>
+          )}
+          {subTab === 'secrets' && (
+            <button
+              onClick={() => setIsCreateSecretOpen(true)}
+              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Secret</span>
+            </button>
+          )}
+          {subTab === 'pvcs' && (
+            <button
+              onClick={() => setIsCreatePvcOpen(true)}
+              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create PVC</span>
+            </button>
+          )}
+          {subTab === 'pvs' && onNavigateToEditor && (
+            <button
+              onClick={() => onNavigateToEditor('pv')}
+              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create PV (YAML)</span>
+            </button>
+          )}
+          {subTab === 'storageclasses' && onNavigateToEditor && (
+            <button
+              onClick={() => onNavigateToEditor('storageclass')}
+              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create StorageClass (YAML)</span>
+            </button>
+          )}
+          {subTab === 'serviceaccounts' && onNavigateToEditor && (
+            <button
+              onClick={() => onNavigateToEditor('serviceaccount')}
+              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create ServiceAccount (YAML)</span>
+            </button>
+          )}
+          {onNavigateToEditor && (
+            <button
+              onClick={() => onNavigateToEditor(subTab === 'configmaps' ? 'configmap' : subTab === 'secrets' ? 'secret' : subTab === 'pvcs' ? 'pvc' : subTab === 'pvs' ? 'pv' : 'storageclass')}
+              className="px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition flex items-center space-x-1.5"
+              title="Open Manifest & YAML Editor"
+            >
+              <FileCode className="w-3.5 h-3.5 text-slate-400" />
+              <span>YAML Blueprint</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ConfigMaps Table */}
@@ -602,7 +668,9 @@ export const K8sConfigStorageManager: React.FC<K8sConfigStorageManagerProps> = (
                             setConfirmModal({
                               isOpen: true,
                               title: `Delete PersistentVolume`,
-                              description: `Delete cluster PersistentVolume "${pv.name}"?`,
+                              description: pv.claim
+                                ? `⚠️ DANGER: PersistentVolume "${pv.name}" is currently BOUND to claim "${pv.claim}". Deleting it will cause data loss or leave the claim in a Lost state!`
+                                : `Delete cluster PersistentVolume "${pv.name}"?`,
                               actionLabel: 'Delete PV',
                               isDestructive: true,
                               target: { kind: 'PersistentVolume', name: pv.name, namespace: '' },
@@ -765,6 +833,31 @@ export const K8sConfigStorageManager: React.FC<K8sConfigStorageManagerProps> = (
         isLoading={actionLoading}
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false, errorMessage: null }))}
+      />
+
+      <K8sCreateConfigMapModal
+        isOpen={isCreateConfigMapOpen}
+        onClose={() => setIsCreateConfigMapOpen(false)}
+        onSuccess={() => onRefresh()}
+        namespaces={namespaces}
+        onOpenYamlEditor={(yaml) => onNavigateToEditor && onNavigateToEditor('configmap', yaml)}
+      />
+
+      <K8sCreateSecretModal
+        isOpen={isCreateSecretOpen}
+        onClose={() => setIsCreateSecretOpen(false)}
+        onSuccess={() => onRefresh()}
+        namespaces={namespaces}
+        onOpenYamlEditor={(yaml) => onNavigateToEditor && onNavigateToEditor('secret', yaml)}
+      />
+
+      <K8sCreatePvcModal
+        isOpen={isCreatePvcOpen}
+        onClose={() => setIsCreatePvcOpen(false)}
+        onSuccess={() => onRefresh()}
+        namespaces={namespaces}
+        storageClasses={storageClasses}
+        onOpenYamlEditor={(yaml) => onNavigateToEditor && onNavigateToEditor('pvc', yaml)}
       />
     </div>
   );

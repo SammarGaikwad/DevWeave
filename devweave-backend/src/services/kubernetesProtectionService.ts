@@ -95,6 +95,22 @@ export function assertResourceNotProtected(
   if (normKind === 'namespace') {
     assertNamespaceNotProtected(name);
   }
+
+  // 4. Block direct deletion of cluster nodes
+  if (normKind === 'node') {
+    throw new AppError(
+      `Direct deletion of Kubernetes node "${name}" is restricted to prevent cluster disruption. Drain and uncordon the node via cluster infrastructure.`,
+      403,
+    );
+  }
+
+  // 5. Block deletion of default storage class
+  if (normKind === 'storageclass' && (normName === 'standard' || normName === 'local-path')) {
+    throw new AppError(
+      `Deleting default cluster storage class "${name}" is restricted to protect volume provisioning.`,
+      403,
+    );
+  }
 }
 
 /**
