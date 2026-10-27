@@ -17,6 +17,7 @@ import {
   createNamespace,
   deleteNamespace,
   revealSecret,
+  createService,
 } from '../controllers/kubernetesController.js';
 import { authenticate } from '../middleware/authenticate.js';
 
@@ -59,5 +60,8 @@ router.delete('/namespaces/:name', deleteNamespace);
 
 // Secret Operations (Authorized reveal)
 router.post('/secrets/reveal', revealSecret);
+
+// Service Management
+router.post('/services', createService);
 
 export default router;

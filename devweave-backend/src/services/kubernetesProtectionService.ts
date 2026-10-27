@@ -98,6 +98,28 @@ export function assertResourceNotProtected(
 }
 
 /**
+ * Asserts that a service creation does not collide with or overwrite core system services.
+ */
+export function assertServiceCreationAllowed(name: string, namespace?: string): void {
+  const normName = name.trim().toLowerCase();
+  const normNs = namespace ? namespace.trim().toLowerCase() : 'default';
+
+  if (normName === 'kubernetes' && normNs === 'default') {
+    throw new AppError(
+      'Creating or overwriting the core system "kubernetes" service in default namespace is strictly forbidden.',
+      403,
+    );
+  }
+
+  if (normName === 'kube-dns' && normNs === 'kube-system') {
+    throw new AppError(
+      'Creating or overwriting the core cluster DNS service "kube-dns" in kube-system namespace is strictly forbidden.',
+      403,
+    );
+  }
+}
+
+/**
  * Mask secret values in Kubernetes Secret objects.
  * Replaces base64 encoded data values with masked tokens.
  */

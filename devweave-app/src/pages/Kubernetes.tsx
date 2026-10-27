@@ -46,11 +46,13 @@ export const Kubernetes: React.FC = () => {
     'workloads' | 'networking' | 'config' | 'cluster' | 'editor' | 'audit'
   >('workloads');
   const [selectedBlueprintId, setSelectedBlueprintId] = useState<string>('deployment');
+  const [selectedYaml, setSelectedYaml] = useState<string | undefined>(undefined);
 
   const timerRef = useRef<any>(null);
 
-  const handleOpenEditorWithBlueprint = (blueprintId: string = 'deployment') => {
+  const handleOpenEditorWithBlueprint = (blueprintId: string = 'deployment', initialYaml?: string) => {
     setSelectedBlueprintId(blueprintId);
+    setSelectedYaml(initialYaml);
     setActiveTab('editor');
   };
 
@@ -450,6 +452,8 @@ export const Kubernetes: React.FC = () => {
           onDelete={handleDeleteResource}
           onRefresh={() => fetchData(true)}
           onNavigateToEditor={handleOpenEditorWithBlueprint}
+          namespaces={namespaceOptions}
+          deployments={inventory?.deployments || []}
         />
       )}
 
@@ -484,6 +488,7 @@ export const Kubernetes: React.FC = () => {
       {activeTab === 'editor' && (
         <K8sManifestEditor
           initialBlueprintId={selectedBlueprintId}
+          initialYaml={selectedYaml}
           onApplied={() => fetchData(true)}
         />
       )}

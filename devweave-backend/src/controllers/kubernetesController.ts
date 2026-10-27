@@ -13,7 +13,11 @@ import {
   getKubernetesInventory as fetchK8sInventory,
   executeKubernetesAction,
 } from '../services/kubernetesManagementService.js';
-import { getKubernetesAuditLogs as fetchK8sAuditLogs } from '../services/kubernetesProtectionService.js';
+import {
+  getKubernetesAuditLogs as fetchK8sAuditLogs,
+  assertServiceCreationAllowed,
+} from '../services/kubernetesProtectionService.js';
+import YAML from 'yaml';
 import {
   k8sApplyManifestSchema,
   k8sDeleteResourceSchema,
@@ -22,6 +26,7 @@ import {
   k8sGetLogsSchema,
   k8sCreateNamespaceSchema,
   k8sRevealSecretSchema,
+  k8sCreateServiceSchema,
 } from '../schemas/kubernetesSchema.js';
 
 const generateK8sSchema = z.object({
@@ -429,6 +434,76 @@ export async function revealSecret(
     res.status(200).json({
       success: true,
       data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createService(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const parsed = k8sCreateServiceSchema.parse(req.body);
+    assertServiceCreationAllowed(parsed.name, parsed.namespace);
+
+    const portName = parsed.portName || (parsed.port === 80 ? 'http' : parsed.port === 443 ? 'https' : 'service-port');
+
+    const serviceManifestObj = {
+      apiVersion: 'v1',
+      kind: 'Service',
+      metadata: {
+        name: parsed.name,
+        namespace: parsed.namespace,
+        labels: {
+          'app.kubernetes.io/name': parsed.name,
+          'app.kubernetes.io/managed-by': 'devweave',
+        },
+      },
+      spec: {
+        type: parsed.type,
+        selector: parsed.selector,
+        ports: [
+          {
+            name: portName,
+            protocol: parsed.protocol,
+            port: parsed.port,
+            targetPort: parsed.targetPort,
+          },
+        ],
+      },
+    };
+
+    const manifestYaml = YAML.stringify(serviceManifestObj);
+
+    const validation = validateK8sYaml(manifestYaml);
+    if (!validation.valid) {
+      res.status(400).json({
+        success: false,
+        message: 'Generated service manifest validation failed.',
+        errors: validation.errors,
+      });
+      return;
+    }
+
+    const result = await executeKubernetesAction(
+      'K8S_APPLY_MANIFEST',
+      { yaml: manifestYaml, namespace: parsed.namespace },
+      { id: req.user!.id },
+      30_000
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `Service "${parsed.name}" created successfully in namespace "${parsed.namespace}".`,
+      data: {
+        created: true,
+        name: parsed.name,
+        namespace: parsed.namespace,
+        output: result?.output || 'Service created.',
+      },
     });
   } catch (error) {
     next(error);

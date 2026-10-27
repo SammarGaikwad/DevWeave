@@ -73,3 +73,35 @@ export const k8sRevealSecretSchema = z.object({
   name: z.string().min(1),
   key: z.string().min(1),
 });
+
+export const k8sCreateServiceSchema = z.object({
+  name: z
+    .string()
+    .min(1, 'Service name is required.')
+    .max(63, 'Service name cannot exceed 63 characters.')
+    .regex(/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/, {
+      message: 'Service name must consist of lower case alphanumeric characters or "-", and must start and end with an alphanumeric character.',
+    }),
+  namespace: z
+    .string()
+    .min(1, 'Namespace is required.')
+    .max(63)
+    .regex(/^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/, {
+      message: 'Namespace must consist of lower case alphanumeric characters or "-".',
+    })
+    .default('default'),
+  type: z.enum(['ClusterIP', 'NodePort', 'LoadBalancer']).default('ClusterIP'),
+  selector: z.record(z.string(), z.string()).refine(
+    (sel) => Object.keys(sel).length > 0 && Object.entries(sel).every(([k, v]) => k.trim() && v.trim()),
+    { message: 'At least one valid selector key-value pair is required.' }
+  ),
+  port: z.number().int().min(1, 'Port must be between 1 and 65535.').max(65535, 'Port must be between 1 and 65535.'),
+  targetPort: z.union([
+    z.number().int().min(1, 'Target port must be between 1 and 65535.').max(65535, 'Target port must be between 1 and 65535.'),
+    z.string().min(1).max(63),
+  ]),
+  protocol: z.enum(['TCP', 'UDP', 'SCTP']).default('TCP'),
+  portName: z.string().max(63).optional(),
+});
+
+export type K8sCreateServiceInput = z.infer<typeof k8sCreateServiceSchema>;

@@ -891,4 +891,168 @@ spec:
       expect(res.status).toBe(400);
     });
   });
+
+  // -------------------------------------------------------------
+  // Suite 12: Service Creation API (POST /services)
+  // -------------------------------------------------------------
+  describe('POST /api/v1/kubernetes/services', () => {
+    it('rejects unauthenticated request with 401', async () => {
+      const res = await request(app)
+        .post('/api/v1/kubernetes/services')
+        .send({
+          name: 'my-service',
+          namespace: 'default',
+          type: 'ClusterIP',
+          selector: { app: 'web' },
+          port: 80,
+          targetPort: 8080,
+        });
+
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects service creation when runner is offline with 503', async () => {
+      clearKubernetesRunnerSnapshot();
+
+      const res = await request(app)
+        .post('/api/v1/kubernetes/services')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: 'my-service',
+          namespace: 'default',
+          type: 'ClusterIP',
+          selector: { app: 'web' },
+          port: 80,
+          targetPort: 8080,
+        });
+
+      expect(res.status).toBe(503);
+      expect(res.body.message).toContain('runner is currently offline');
+    });
+
+    it('rejects creating or overwriting default/kubernetes core service with 403', async () => {
+      saveKubernetesRunnerSnapshot(validSnapshot);
+
+      const res = await request(app)
+        .post('/api/v1/kubernetes/services')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: 'kubernetes',
+          namespace: 'default',
+          type: 'ClusterIP',
+          selector: { app: 'k8s' },
+          port: 443,
+          targetPort: 443,
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body.message).toContain('core system "kubernetes" service');
+    });
+
+    it('rejects invalid service name format with 400', async () => {
+      saveKubernetesRunnerSnapshot(validSnapshot);
+
+      const res = await request(app)
+        .post('/api/v1/kubernetes/services')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: 'INVALID_UPPERCASE_NAME!',
+          namespace: 'default',
+          type: 'ClusterIP',
+          selector: { app: 'web' },
+          port: 80,
+          targetPort: 8080,
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('Validation failed');
+    });
+
+    it('rejects invalid port number with 400', async () => {
+      saveKubernetesRunnerSnapshot(validSnapshot);
+
+      const res = await request(app)
+        .post('/api/v1/kubernetes/services')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: 'valid-service',
+          namespace: 'default',
+          type: 'ClusterIP',
+          selector: { app: 'web' },
+          port: 99999,
+          targetPort: 8080,
+        });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects empty selector mapping with 400', async () => {
+      saveKubernetesRunnerSnapshot(validSnapshot);
+
+      const res = await request(app)
+        .post('/api/v1/kubernetes/services')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: 'valid-service',
+          namespace: 'default',
+          type: 'ClusterIP',
+          selector: {},
+          port: 80,
+          targetPort: 8080,
+        });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('creates service successfully and dispatches K8S_APPLY_MANIFEST job to runner', async () => {
+      saveKubernetesRunnerSnapshot(validSnapshot);
+
+      const runnerPollTimer = setTimeout(async () => {
+        try {
+          const pollRes = await request(app)
+            .post('/api/v1/kubernetes/runner/jobs/poll')
+            .set('Authorization', `Bearer ${runnerToken}`)
+            .send({ runnerId: 'windows-k8s-runner' });
+
+          if (pollRes.body?.data?.id) {
+            expect(pollRes.body.data.actionType).toBe('K8S_APPLY_MANIFEST');
+            expect(pollRes.body.data.params.yaml).toContain('kind: Service');
+            expect(pollRes.body.data.params.yaml).toContain('devweave-test-svc');
+            expect(pollRes.body.data.params.namespace).toBe('default');
+
+            await request(app)
+              .post(`/api/v1/kubernetes/runner/jobs/${pollRes.body.data.id}/complete`)
+              .set('Authorization', `Bearer ${runnerToken}`)
+              .send({
+                success: true,
+                data: { applied: true, output: 'service/devweave-test-svc created' },
+              });
+          }
+        } catch {
+          //
+        }
+      }, 30);
+
+      const res = await request(app)
+        .post('/api/v1/kubernetes/services')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: 'devweave-test-svc',
+          namespace: 'default',
+          type: 'ClusterIP',
+          selector: { app: 'devweave-service' },
+          port: 80,
+          targetPort: 8080,
+        });
+
+      clearTimeout(runnerPollTimer);
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toContain('devweave-test-svc');
+      expect(res.body.data.created).toBe(true);
+      expect(res.body.data.name).toBe('devweave-test-svc');
+      expect(res.body.data.namespace).toBe('default');
+    });
+  });
 });

@@ -436,4 +436,23 @@ export const kubernetesService = {
     );
     return res.data;
   },
+
+  async createService(input: K8sCreateServiceInput): Promise<{ created: boolean; name: string; namespace: string; output: string }> {
+    const res = await apiClient.post<{ success: boolean; data: { created: boolean; name: string; namespace: string; output: string } }>(
+      '/v1/kubernetes/services',
+      input
+    );
+    return res.data;
+  },
 };
+
+export interface K8sCreateServiceInput {
+  name: string;
+  namespace: string;
+  type: 'ClusterIP' | 'NodePort' | 'LoadBalancer';
+  selector: Record<string, string>;
+  port: number;
+  targetPort: number | string;
+  protocol?: 'TCP' | 'UDP' | 'SCTP';
+  portName?: string;
+}

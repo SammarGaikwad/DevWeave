@@ -19,11 +19,13 @@ import {
 
 interface K8sManifestEditorProps {
   initialBlueprintId?: string;
+  initialYaml?: string;
   onApplied?: () => void;
 }
 
 export const K8sManifestEditor: React.FC<K8sManifestEditorProps> = ({
   initialBlueprintId,
+  initialYaml,
   onApplied,
 }) => {
   const [editorMode, setEditorMode] = useState<'editor' | 'templates' | 'generator'>('editor');
@@ -79,6 +81,13 @@ spec:
       }).catch(() => {});
     }
   }, [initialBlueprintId]);
+
+  useEffect(() => {
+    if (initialYaml) {
+      setYamlContent(initialYaml);
+      setEditorMode('editor');
+    }
+  }, [initialYaml]);
 
   // Custom Generator options
   const [customOptions, setCustomOptions] = useState<K8sCustomOptions>({

@@ -4,9 +4,11 @@ import type {
   K8sServiceSummary,
   K8sIngressSummary,
   K8sNetworkPolicySummary,
+  K8sDeploymentSummary,
 } from '../../services/kubernetesService';
 import { K8sYamlModal } from './K8sYamlModal';
 import { K8sConfirmModal } from './K8sConfirmModal';
+import { K8sCreateServiceModal } from './K8sCreateServiceModal';
 
 interface K8sNetworkingManagerProps {
   services: K8sServiceSummary[];
@@ -16,7 +18,9 @@ interface K8sNetworkingManagerProps {
   searchTerm: string;
   onDelete: (kind: string, name: string, namespace: string) => Promise<void>;
   onRefresh: () => void;
-  onNavigateToEditor?: (blueprintId?: string) => void;
+  onNavigateToEditor?: (blueprintId?: string, initialYaml?: string) => void;
+  namespaces?: string[];
+  deployments?: K8sDeploymentSummary[];
 }
 
 export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
@@ -28,8 +32,11 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
   onDelete,
   onRefresh,
   onNavigateToEditor,
+  namespaces = ['default'],
+  deployments = [],
 }) => {
   const [subTab, setSubTab] = useState<'services' | 'ingresses' | 'networkpolicies'>('services');
+  const [isCreateServiceOpen, setIsCreateServiceOpen] = useState<boolean>(false);
 
   const [yamlModal, setYamlModal] = useState<{
     isOpen: boolean;
@@ -127,15 +134,25 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
           </button>
         </div>
 
-        {onNavigateToEditor && (
+        <div className="flex items-center space-x-2 shrink-0">
           <button
-            onClick={() => onNavigateToEditor('service')}
-            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30 shrink-0"
+            onClick={() => setIsCreateServiceOpen(true)}
+            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-indigo-900/30"
           >
             <Plus className="w-4 h-4" />
             <span>Create Service</span>
           </button>
-        )}
+          {onNavigateToEditor && (
+            <button
+              onClick={() => onNavigateToEditor('service')}
+              className="px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition flex items-center space-x-1.5"
+              title="Open Manifest & YAML Editor with Service blueprint"
+            >
+              <FileCode className="w-3.5 h-3.5 text-slate-400" />
+              <span>YAML Blueprint</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Services Table */}
@@ -157,7 +174,16 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
               {filteredServices.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-slate-500 font-sans">
-                    No Services found in the selected namespace.
+                    <div className="max-w-sm mx-auto space-y-3">
+                      <p>No Services found in the selected namespace.</p>
+                      <button
+                        onClick={() => setIsCreateServiceOpen(true)}
+                        className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-indigo-300 bg-indigo-950/60 border border-indigo-700/50 hover:bg-indigo-900/80 rounded-xl transition"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Create Service</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -402,6 +428,22 @@ export const K8sNetworkingManager: React.FC<K8sNetworkingManagerProps> = ({
         isLoading={actionLoading}
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false, errorMessage: null }))}
+      />
+
+      <K8sCreateServiceModal
+        isOpen={isCreateServiceOpen}
+        onClose={() => setIsCreateServiceOpen(false)}
+        onSuccess={() => {
+          onRefresh();
+        }}
+        initialNamespace={selectedNamespace}
+        namespaces={namespaces}
+        deployments={deployments}
+        onOpenYamlEditor={(yaml) => {
+          if (onNavigateToEditor) {
+            onNavigateToEditor('service', yaml);
+          }
+        }}
       />
     </div>
   );
