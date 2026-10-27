@@ -41,6 +41,11 @@ const envSchema = z.object({
   DOCKER_RUNNER_ID: z.string().min(1).max(100).optional(),
   KUBERNETES_RUNNER_TOKEN: z.string().min(32).optional(),
   KUBERNETES_RUNNER_ID: z.string().min(1).max(100).optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL: z.string().default('gpt-4o-mini'),
+  OPENAI_BASE_URL: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
 });
 
 const _env = envSchema.safeParse(process.env);

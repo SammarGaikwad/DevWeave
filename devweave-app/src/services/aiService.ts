@@ -26,6 +26,23 @@ export interface DiagnosticResult {
   preventionGuideline: string;
 }
 
+export interface AIChatMessage {
+  id?: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp?: string;
+}
+
+export interface AIChatResponse {
+  message: string;
+  isAIGenerated: boolean;
+  engineType: 'LLM_PROVIDER' | 'RULE_BASED_DIAGNOSTIC_ENGINE';
+  provider: 'OPENAI' | 'GEMINI' | 'DETERMINISTIC_RULES';
+  modelName: string;
+  diagnosis?: DiagnosticResult;
+  suggestedActions?: { label: string; action: string }[];
+}
+
 export const aiService = {
   async getStatus(): Promise<AIProviderStatus> {
     const res = await apiClient.get<{ success: boolean; data: AIProviderStatus }>('/v1/ai/status');
@@ -35,6 +52,14 @@ export const aiService = {
   async diagnoseLog(logText: string): Promise<DiagnosticResult> {
     const res = await apiClient.post<{ success: boolean; data: DiagnosticResult }>('/v1/ai/diagnose', {
       logText,
+    });
+    return res.data;
+  },
+
+  async chat(message: string, history?: AIChatMessage[]): Promise<AIChatResponse> {
+    const res = await apiClient.post<{ success: boolean; data: AIChatResponse }>('/v1/ai/chat', {
+      message,
+      history: history?.map((h) => ({ role: h.role, content: h.content })),
     });
     return res.data;
   },

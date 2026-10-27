@@ -73,4 +73,68 @@ sh: 1: vitest: not found
       expect(resV1.body.data.category).toBe('NETWORK_CONNECTIVITY');
     });
   });
+
+  describe('POST /api/v1/ai/chat', () => {
+    it('should reject unauthenticated chat requests with 401', async () => {
+      const res = await request(app)
+        .post('/api/v1/ai/chat')
+        .send({ message: 'Hello AI' });
+
+      expect(res.status).toBe(401);
+    });
+
+    it('should reject empty message with 400 Bad Request', async () => {
+      const res = await request(app)
+        .post('/api/v1/ai/chat')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ message: '   ' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should answer general DevOps query with deterministic rule engine attribution', async () => {
+      const res = await request(app)
+        .post('/api/v1/ai/chat')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ message: 'Hello, what can you do?' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.isAIGenerated).toBe(false);
+      expect(res.body.data.engineType).toBe('RULE_BASED_DIAGNOSTIC_ENGINE');
+      expect(res.body.data.provider).toBe('DETERMINISTIC_RULES');
+      expect(res.body.data.message).toContain('DevWeave AI Assistant');
+    });
+
+    it('should provide Kubernetes assistance on Kubernetes queries', async () => {
+      const res = await request(app)
+        .post('/api/v1/ai/chat')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ message: 'How do I deploy a Kubernetes service?' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.message).toContain('Kubernetes');
+      expect(res.body.data.message).toContain('ClusterIP');
+    });
+
+    it('should automatically diagnose error log snippets sent in chat message', async () => {
+      const logSnippet = `[Run Tests] Running automated tests...
+sh: 1: vitest: not found
+[Build Backend] Stage skipped due to earlier failure`;
+
+      const res = await request(app)
+        .post('/api/v1/ai/chat')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ message: logSnippet });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.diagnosis).toBeDefined();
+      expect(res.body.data.diagnosis.signature).toBe('RULE_VITEST_NOT_FOUND');
+      expect(res.body.data.message).toContain('Automated DevOps Diagnosis');
+      expect(res.body.data.message).toContain('Missing Vitest Binary');
+    });
+  });
 });

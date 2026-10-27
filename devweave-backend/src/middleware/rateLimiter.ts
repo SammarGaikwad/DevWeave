@@ -33,3 +33,14 @@ export const kubernetesRunnerRateLimiter = rateLimit({
   },
 });
 
+export const aiChatRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // Limit each client to 60 chat requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many AI chat requests. Please wait a moment before sending more messages.',
+  },
+});
+
