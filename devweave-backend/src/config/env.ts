@@ -39,6 +39,8 @@ const envSchema = z.object({
   JENKINS_JOB_NAME: z.string().default('DevWeave-CI-CD'),
   DOCKER_RUNNER_TOKEN: z.string().min(32).optional(),
   DOCKER_RUNNER_ID: z.string().min(1).max(100).optional(),
+  KUBERNETES_RUNNER_TOKEN: z.string().min(32).optional(),
+  KUBERNETES_RUNNER_ID: z.string().min(1).max(100).optional(),
 });
 
 const _env = envSchema.safeParse(process.env);

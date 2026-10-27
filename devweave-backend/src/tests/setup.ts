@@ -48,3 +48,8 @@ if (!process.env.DOCKER_RUNNER_TOKEN) {
   process.env.DOCKER_RUNNER_TOKEN =
     'devweave_test_docker_runner_token_only_123456';
 }
+
+if (!process.env.KUBERNETES_RUNNER_TOKEN) {
+  process.env.KUBERNETES_RUNNER_TOKEN =
+    'devweave_test_k8s_runner_token_only_123456';
+}

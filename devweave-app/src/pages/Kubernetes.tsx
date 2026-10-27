@@ -1,678 +1,472 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Boxes,
   Layers,
-  Copy,
-  Check,
   RefreshCw,
   AlertCircle,
-  CheckCircle2,
-  Terminal,
-  ShieldCheck,
-  Sliders,
-  FileCode,
-  CheckSquare,
-  Network,
+  Search,
   Cpu,
-  Info,
+  Network,
+  HardDrive,
+  FileCode,
+  Activity,
+  Server,
+  Key,
 } from 'lucide-react';
 import { GlassCard } from '../components/ui/GlassCard';
 import { StatusBadge, type StatusType } from '../components/ui/StatusBadge';
 import {
   kubernetesService,
   type ClusterStatus,
-  type K8sManifestTemplateSummary,
-  type K8sManifestTemplateDetail,
-  type K8sCustomOptions,
-  type K8sValidationResult,
+  type KubernetesInventorySnapshot,
+  type KubernetesAuditEvent,
+  type KubernetesRunnerStatus,
 } from '../services/kubernetesService';
+import { K8sWorkloadsManager } from '../components/kubernetes/K8sWorkloadsManager';
+import { K8sNetworkingManager } from '../components/kubernetes/K8sNetworkingManager';
+import { K8sConfigStorageManager } from '../components/kubernetes/K8sConfigStorageManager';
+import { K8sClusterManager } from '../components/kubernetes/K8sClusterManager';
+import { K8sManifestEditor } from '../components/kubernetes/K8sManifestEditor';
+import { K8sAuditLogsManager } from '../components/kubernetes/K8sAuditLogsManager';
 
 export const Kubernetes: React.FC = () => {
   const [clusterStatus, setClusterStatus] = useState<ClusterStatus | null>(null);
-  const [loadingStatus, setLoadingStatus] = useState(true);
-  const [templates, setTemplates] = useState<K8sManifestTemplateSummary[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('deployment');
-  const [activeTemplate, setActiveTemplate] = useState<K8sManifestTemplateDetail | null>(null);
-  const [loadingTemplate, setLoadingTemplate] = useState(false);
-  const [activeTab, setActiveTab] = useState<'templates' | 'generator' | 'validator'>('templates');
-  const [copiedType, setCopiedType] = useState<string | null>(null);
+  const [runnerStatus, setRunnerStatus] = useState<KubernetesRunnerStatus | null>(null);
+  const [inventory, setInventory] = useState<KubernetesInventorySnapshot | null>(null);
+  const [auditLogs, setAuditLogs] = useState<KubernetesAuditEvent[]>([]);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
 
-  // Custom Generator State
-  const [customOptions, setCustomOptions] = useState<K8sCustomOptions>({
-    serviceName: 'devweave-api',
-    namespace: 'production',
-    imageTag: 'devweave/api:v1.0.0',
-    containerPort: 8080,
-    replicas: 3,
-    cpuRequest: '100m',
-    cpuLimit: '500m',
-    memoryRequest: '128Mi',
-    memoryLimit: '512Mi',
-    enableIngress: true,
-    ingressHost: 'api.devweave.internal',
-    enableHpa: true,
-    minReplicas: 2,
-    maxReplicas: 10,
-  });
-  const [generatedYaml, setGeneratedYaml] = useState<string>('');
-  const [generating, setGenerating] = useState(false);
+  // Filters
+  const [selectedNamespace, setSelectedNamespace] = useState<string>('ALL');
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // Validator State
-  const [yamlToValidate, setYamlToValidate] = useState<string>(`apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: sample-app
-  namespace: default
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: sample-app
-  template:
-    metadata:
-      labels:
-        app: sample-app
-    spec:
-      containers:
-        - name: web
-          image: nginx:alpine
-          ports:
-            - containerPort: 80`);
-  const [validationResult, setValidationResult] = useState<K8sValidationResult | null>(null);
-  const [validating, setValidating] = useState(false);
+  // Main navigation tabs
+  const [activeTab, setActiveTab] = useState<
+    'workloads' | 'networking' | 'config' | 'cluster' | 'editor' | 'audit'
+  >('workloads');
 
-  const fetchStatus = useCallback(async () => {
-    setLoadingStatus(true);
+  const timerRef = useRef<any>(null);
+
+  const fetchData = useCallback(async (isBackground = false) => {
+    if (!isBackground) setRefreshing(true);
     try {
-      const data = await kubernetesService.getStatus();
-      setClusterStatus(data);
-    } catch {
-      setClusterStatus({
-        kubectlInstalled: false,
-        clientVersion: null,
-        clusterConnected: false,
-        currentContext: null,
-        clusterEndpoint: null,
-        serverVersion: null,
-        status: 'DISCONNECTED',
-        message: 'Could not connect to backend cluster health probe.',
-        setupInstructions: [
-          'Verify backend API server is running on port 8080',
-          'Check cluster reachability via: kubectl cluster-info',
-        ],
-      });
-    } finally {
-      setLoadingStatus(false);
-    }
-  }, []);
+      const [statusRes, runnerRes, invRes, auditRes] = await Promise.allSettled([
+        kubernetesService.getStatus(),
+        kubernetesService.getRunnerStatus(),
+        kubernetesService.getInventory(),
+        kubernetesService.getAuditLogs(),
+      ]);
 
-  const fetchTemplates = useCallback(async () => {
-    try {
-      const list = await kubernetesService.getTemplates();
-      setTemplates(list);
-      if (list.length > 0 && !selectedTemplateId) {
-        setSelectedTemplateId(list[0].id);
+      if (statusRes.status === 'fulfilled') {
+        setClusterStatus(statusRes.value);
       }
-    } catch (err) {
-      console.error('Failed to load k8s templates', err);
-    }
-  }, [selectedTemplateId]);
-
-  const loadTemplateDetail = useCallback(async (id: string) => {
-    setLoadingTemplate(true);
-    try {
-      const detail = await kubernetesService.getTemplateById(id);
-      setActiveTemplate(detail);
-    } catch (err) {
-      console.error('Failed to load k8s template detail', err);
+      if (runnerRes.status === 'fulfilled') {
+        setRunnerStatus(runnerRes.value);
+      }
+      if (invRes.status === 'fulfilled') {
+        setInventory(invRes.value);
+      }
+      if (auditRes.status === 'fulfilled') {
+        setAuditLogs(auditRes.value);
+      }
+    } catch {
+      // Fetch error handled gracefully
     } finally {
-      setLoadingTemplate(false);
+      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    void fetchStatus();
-    void fetchTemplates();
-  }, [fetchStatus, fetchTemplates]);
+    fetchData();
+  }, [fetchData]);
 
+  // Periodic auto-refresh every 10 seconds
   useEffect(() => {
-    if (selectedTemplateId) {
-      void loadTemplateDetail(selectedTemplateId);
+    if (!autoRefresh) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
     }
-  }, [selectedTemplateId, loadTemplateDetail]);
 
-  const handleCopy = (text: string, type: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedType(type);
-    setTimeout(() => setCopiedType(null), 2000);
+    timerRef.current = setInterval(() => {
+      fetchData(true);
+    }, 10000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [autoRefresh, fetchData]);
+
+  // Handlers for workload and resource operations
+  const handleScale = async (kind: string, name: string, namespace: string, replicas: number) => {
+    await kubernetesService.scaleResource(kind, name, namespace, replicas);
+    await fetchData(true);
   };
 
-  const handleGenerateCustom = async () => {
-    setGenerating(true);
-    try {
-      const res = await kubernetesService.generateManifest(customOptions);
-      setGeneratedYaml(res.yaml);
-    } catch (err) {
-      console.error('Failed to generate manifest', err);
-    } finally {
-      setGenerating(false);
+  const handleRestart = async (kind: string, name: string, namespace: string) => {
+    await kubernetesService.restartResource(kind, name, namespace);
+    await fetchData(true);
+  };
+
+  const handleDeleteResource = async (kind: string, name: string, namespace: string) => {
+    await kubernetesService.deleteResource(kind, name, namespace);
+    await fetchData(true);
+  };
+
+  const handleDeleteNamespace = async (name: string) => {
+    await kubernetesService.deleteNamespace(name);
+    await fetchData(true);
+  };
+
+  // Summaries
+  const totalDeployments = inventory?.deployments?.length ?? 0;
+  const readyDeployments =
+    inventory?.deployments?.filter((d) => d.readyReplicas === d.replicas && d.replicas > 0).length ?? 0;
+  const totalPods = inventory?.pods?.length ?? 0;
+  const runningPods = inventory?.pods?.filter((p) => p.phase === 'Running').length ?? 0;
+  const totalServices = inventory?.services?.length ?? 0;
+  const totalNodes = inventory?.nodes?.length ?? 0;
+  const readyNodes = inventory?.nodes?.filter((n) => n.status === 'Ready').length ?? 0;
+  const totalPvcs = inventory?.persistentVolumeClaims?.length ?? 0;
+  const boundPvcs = inventory?.persistentVolumeClaims?.filter((p) => p.status === 'Bound').length ?? 0;
+  const isRunnerOnline = runnerStatus?.online ?? false;
+  const isClusterConnected = clusterStatus?.clusterConnected ?? false;
+
+  const getStatusBadge = (): { type: StatusType; label: string } => {
+    if (!isRunnerOnline) {
+      return { type: 'Offline', label: 'RUNNER OFFLINE' };
     }
-  };
-
-  const handleValidate = async () => {
-    setValidating(true);
-    try {
-      const res = await kubernetesService.validateManifest(yamlToValidate);
-      setValidationResult(res);
-    } catch (err) {
-      console.error('Failed to validate manifest', err);
-    } finally {
-      setValidating(false);
+    if (isClusterConnected) {
+      return { type: 'Healthy', label: 'CLUSTER CONNECTED' };
     }
+    return { type: 'Warning', label: 'CLUSTER DISCONNECTED' };
   };
 
-  const getStatusBadgeInfo = (): { type: StatusType; label: string } => {
-    if (loadingStatus) return { type: 'Pending', label: 'Probing Cluster...' };
-    if (!clusterStatus) return { type: 'Offline', label: 'Unknown' };
-    if (clusterStatus.status === 'CONNECTED') return { type: 'Running', label: 'Cluster Active' };
-    if (clusterStatus.status === 'DISCONNECTED') return { type: 'Warning', label: 'Cluster Offline (Manifest Mode)' };
-    return { type: 'Failed', label: 'kubectl Not Found' };
-  };
+  const badge = getStatusBadge();
 
-  const badgeInfo = getStatusBadgeInfo();
+  // Namespaces list for dropdown filter
+  const namespaceOptions = inventory?.namespaces?.map((ns) => ns.name) || [];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      {/* 1. Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
+    <div className="space-y-6 animate-fade-in text-slate-100">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
-              <Boxes className="h-7 w-7 text-indigo-400" />
-              Kubernetes Orchestration
+          <div className="flex items-center space-x-3">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">
+              Kubernetes Management
             </h1>
-            <StatusBadge status={badgeInfo.type} customLabel={badgeInfo.label} />
+            <StatusBadge status={badge.type} customLabel={badge.label} />
           </div>
-          <p className="text-sm text-white/60 mt-1">
-            Cluster connection diagnostics, manifest blueprint catalog, and multi-document YAML generator.
+          <p className="text-xs text-slate-400 mt-1">
+            Production workload orchestration, cluster inventory, manifest lifecycle, and runner integration.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Global Controls */}
+        <div className="flex items-center space-x-3">
+          {/* Namespace Filter */}
+          <div className="flex items-center space-x-2 bg-slate-900/80 border border-slate-700/80 px-3 py-1.5 rounded-xl text-xs">
+            <Layers className="w-4 h-4 text-indigo-400 shrink-0" />
+            <select
+              value={selectedNamespace}
+              onChange={(e) => setSelectedNamespace(e.target.value)}
+              className="bg-transparent text-slate-200 font-mono text-xs focus:outline-none cursor-pointer"
+            >
+              <option value="ALL" className="bg-slate-900 text-slate-200">
+                All Namespaces
+              </option>
+              {namespaceOptions.map((ns) => (
+                <option key={ns} value={ns} className="bg-slate-900 text-slate-200">
+                  {ns}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Search Box */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search resources..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 pr-3 py-1.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-44"
+            />
+          </div>
+
+          {/* Auto Refresh Toggle */}
           <button
-            onClick={() => void fetchStatus()}
-            disabled={loadingStatus}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white/80 hover:text-white hover:bg-white/[0.08] text-xs font-medium transition-all disabled:opacity-50"
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            title={autoRefresh ? 'Auto-refresh active (10s)' : 'Auto-refresh paused'}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition flex items-center space-x-1.5 ${
+              autoRefresh
+                ? 'bg-indigo-600/10 border-indigo-500/40 text-indigo-300'
+                : 'bg-slate-900/80 border-slate-700 text-slate-400'
+            }`}
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${loadingStatus ? 'animate-spin text-indigo-400' : ''}`} />
-            <span>Probe Cluster</span>
+            <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-indigo-400 animate-pulse' : 'bg-slate-500'}`} />
+            <span>Auto</span>
+          </button>
+
+          {/* Refresh Button */}
+          <button
+            onClick={() => fetchData()}
+            disabled={refreshing}
+            className="p-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-slate-300 hover:text-white transition disabled:opacity-50"
+            title="Refresh inventory now"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* 2. Cluster Telemetry Banner */}
-      <GlassCard className="p-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Runner / Cluster Warning Banner if Offline */}
+      {!isRunnerOnline ? (
+        <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-500/40 text-amber-200 text-xs flex items-start space-x-3.5">
+          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-white/40 uppercase tracking-wider">Cluster Status</span>
-              <span className="px-1.5 py-0.5 text-[10px] rounded bg-white/[0.06] text-white/60 font-mono">
-                {clusterStatus?.status === 'CONNECTED' ? 'Live Telemetry' : 'Offline / Standalone Mode'}
-              </span>
-            </div>
-            <h3 className="text-base font-semibold text-white">
-              {clusterStatus?.status === 'CONNECTED'
-                ? `Connected: Context "${clusterStatus.currentContext || 'default'}"`
-                : clusterStatus?.status === 'DISCONNECTED'
-                ? 'No Active Kubernetes Cluster Connected'
-                : 'kubectl Client Not Found'}
-            </h3>
-            <p className="text-xs text-white/60 leading-relaxed max-w-2xl">
-              {clusterStatus?.message || 'Inspecting local kubeconfig contexts and cluster reachability...'}
+            <h4 className="font-semibold text-sm text-amber-300">
+              Windows Kubernetes Runner Offline
+            </h4>
+            <p className="leading-relaxed text-slate-300">
+              The hosted DevWeave backend cannot reach your local Kubernetes cluster directly. Start the local runner daemon on your Windows machine to bridge kubectl telemetry:
             </p>
-          </div>
-
-          <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border self-start md:self-auto ${
-              clusterStatus?.status === 'CONNECTED'
-                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-            }`}
-          >
-            {clusterStatus?.status === 'CONNECTED' ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+            <div className="flex items-center space-x-2 pt-1 font-mono text-[11px] text-amber-300 bg-black/40 px-3 py-1.5 rounded-lg w-fit">
+              <span>.\scripts\run-k8s-runner.ps1</span>
+              <span className="text-slate-500">or</span>
+              <span>npm run runner:k8s</span>
+            </div>
           </div>
         </div>
-
-        {clusterStatus?.clientVersion && (
-          <div className="mt-4 pt-3 border-t border-white/[0.06] flex flex-wrap items-center gap-4 text-xs font-mono text-white/60">
-            <span className="inline-flex items-center gap-1.5">
-              <Terminal className="h-3.5 w-3.5 text-indigo-400" />
-              kubectl: {clusterStatus.clientVersion}
-            </span>
-            {clusterStatus.currentContext && (
-              <span className="text-white/80">Active Context: {clusterStatus.currentContext}</span>
-            )}
-            {clusterStatus.clusterEndpoint && (
-              <span className="text-emerald-400">Endpoint: {clusterStatus.clusterEndpoint}</span>
-            )}
-          </div>
-        )}
-
-        {clusterStatus?.status !== 'CONNECTED' && clusterStatus?.setupInstructions && (
-          <div className="mt-4 p-3.5 rounded-lg bg-indigo-500/5 border border-indigo-500/15 space-y-2">
-            <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wide flex items-center gap-1.5">
-              <Info className="h-3.5 w-3.5" /> Note on Live Cluster Connection
-            </span>
-            <p className="text-xs text-white/70">
-              DevWeave allows full preview, validation, and generation of Kubernetes manifests in standalone mode without requiring a running cluster. To connect a live cluster:
+      ) : !isClusterConnected ? (
+        <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-500/40 text-amber-200 text-xs flex items-start space-x-3.5">
+          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h4 className="font-semibold text-sm text-amber-300">
+              Kubernetes Cluster Unreachable
+            </h4>
+            <p className="leading-relaxed text-slate-300">
+              {clusterStatus?.message || 'Runner is online, but kubectl cannot connect to a live Kubernetes cluster API endpoint.'}
             </p>
-            <ul className="text-xs text-white/70 space-y-1 list-disc list-inside">
-              {clusterStatus.setupInstructions.map((instruction, idx) => (
-                <li key={idx}>{instruction}</li>
-              ))}
+            <ul className="list-disc list-inside text-slate-400 space-y-0.5 pt-1">
+              <li>Enable Kubernetes in Docker Desktop (Settings &gt; Kubernetes &gt; Enable Kubernetes)</li>
+              <li>Or start Minikube: <code className="text-indigo-300">minikube start</code></li>
+              <li>Verify current context: <code className="text-indigo-300">kubectl config get-contexts</code></li>
             </ul>
           </div>
-        )}
-      </GlassCard>
-
-      {/* 3. Workload Architecture Notice & Cards */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-white">Workload Architecture</h2>
-            <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-mono">
-              {clusterStatus?.status === 'CONNECTED' ? 'Live Cluster' : 'Simulated Preview (Disconnected)'}
-            </span>
-          </div>
-          <span className="text-xs text-white/40">3 Workloads configured in blueprints</span>
         </div>
+      ) : null}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <GlassCard className="p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-white">devweave-api</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                3/3 Pods Ready
-              </span>
-            </div>
-            <p className="text-xs text-white/60">Deployment (RollingUpdate) &bull; port 8080</p>
-            <div className="pt-2 flex items-center justify-between text-[11px] text-white/40 font-mono">
-              <span className="inline-flex items-center gap-1"><Cpu className="h-3 w-3 text-blue-400" /> 120m / 500m</span>
-              <span className="inline-flex items-center gap-1"><Network className="h-3 w-3 text-indigo-400" /> ClusterIP</span>
-            </div>
-          </GlassCard>
-
-          <GlassCard className="p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-white">devweave-frontend</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                2/2 Pods Ready
-              </span>
-            </div>
-            <p className="text-xs text-white/60">Nginx SPA &bull; port 80</p>
-            <div className="pt-2 flex items-center justify-between text-[11px] text-white/40 font-mono">
-              <span className="inline-flex items-center gap-1"><Cpu className="h-3 w-3 text-blue-400" /> 45m / 250m</span>
-              <span className="inline-flex items-center gap-1"><Network className="h-3 w-3 text-indigo-400" /> Ingress Enabled</span>
-            </div>
-          </GlassCard>
-
-          <GlassCard className="p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-white">postgres-cluster</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                1/1 Pod Ready
-              </span>
-            </div>
-            <p className="text-xs text-white/60">StatefulSet &bull; PVC 20Gi &bull; port 5432</p>
-            <div className="pt-2 flex items-center justify-between text-[11px] text-white/40 font-mono">
-              <span className="inline-flex items-center gap-1"><Cpu className="h-3 w-3 text-blue-400" /> 210m / 1000m</span>
-              <span className="inline-flex items-center gap-1"><Network className="h-3 w-3 text-indigo-400" /> Internal Only</span>
-            </div>
-          </GlassCard>
-        </div>
-      </div>
-
-      {/* 4. Navigation Tabs */}
-      <div className="flex border-b border-white/[0.08] gap-4">
-        <button
-          onClick={() => setActiveTab('templates')}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'templates'
-              ? 'border-indigo-500 text-white'
-              : 'border-transparent text-white/60 hover:text-white'
-          }`}
-        >
-          <Layers className="h-4 w-4" />
-          Manifest Blueprints ({templates.length})
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('generator');
-            if (!generatedYaml) void handleGenerateCustom();
-          }}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'generator'
-              ? 'border-indigo-500 text-white'
-              : 'border-transparent text-white/60 hover:text-white'
-          }`}
-        >
-          <FileCode className="h-4 w-4" />
-          Full Multi-Doc Generator
-        </button>
-        <button
-          onClick={() => setActiveTab('validator')}
-          className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'validator'
-              ? 'border-indigo-500 text-white'
-              : 'border-transparent text-white/60 hover:text-white'
-          }`}
-        >
-          <CheckSquare className="h-4 w-4" />
-          YAML Syntax Validator
-        </button>
-      </div>
-
-      {/* 5. Tab Content: Manifest Blueprints */}
-      {activeTab === 'templates' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-4 space-y-2">
-            <span className="text-xs font-semibold text-white/40 uppercase tracking-wider block px-1">
-              Select K8s Resource
-            </span>
-            {templates.map((tpl) => (
-              <div
-                key={tpl.id}
-                onClick={() => setSelectedTemplateId(tpl.id)}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                  selectedTemplateId === tpl.id
-                    ? 'bg-indigo-500/10 border-indigo-500/30 text-white shadow-lg shadow-indigo-500/5'
-                    : 'bg-white/[0.02] border-white/[0.06] text-white/70 hover:bg-white/[0.05] hover:text-white'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold">{tpl.name}</h4>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.06] text-indigo-400 font-mono">
-                    {tpl.kind}
-                  </span>
-                </div>
-                <p className="text-xs text-white/50 mt-1 line-clamp-2">{tpl.description}</p>
-                <div className="mt-2 flex items-center gap-1.5 text-[11px] text-indigo-400">
-                  <ShieldCheck className="h-3 w-3" />
-                  <span>{tpl.bestPractices.length} Production Best Practices</span>
-                </div>
-              </div>
-            ))}
+      {/* Cluster Telemetry & Metric Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <GlassCard className="p-3.5 space-y-1">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Deployments</span>
+            <Boxes className="w-4 h-4 text-indigo-400" />
           </div>
-
-          <div className="lg:col-span-8 space-y-4">
-            {activeTemplate ? (
-              <GlassCard className="p-5 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
-                  <div>
-                    <h3 className="text-base font-semibold text-white">{activeTemplate.name}</h3>
-                    <p className="text-xs text-white/60 mt-0.5">{activeTemplate.description}</p>
-                  </div>
-                  <button
-                    onClick={() => handleCopy(activeTemplate.content, 'manifest')}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-white text-xs font-medium transition-all"
-                  >
-                    {copiedType === 'manifest' ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                    <span>{copiedType === 'manifest' ? 'Copied' : 'Copy Manifest'}</span>
-                  </button>
-                </div>
-
-                {/* Best Practices */}
-                <div className="space-y-1.5">
-                  <span className="text-[11px] text-white/40 uppercase font-semibold">Reliability Standards:</span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {activeTemplate.bestPractices.map((bp, i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-xs text-white/70 bg-white/[0.02] p-2 rounded-lg border border-white/[0.04]">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>{bp}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Manifest Code */}
-                <div className="space-y-1">
-                  <span className="text-[11px] font-mono text-white/40">{activeTemplate.kind}.yaml</span>
-                  <pre className="bg-black/60 p-4 rounded-xl border border-white/[0.08] text-xs font-mono text-zinc-200 overflow-x-auto leading-relaxed max-h-[380px]">
-                    <code>{activeTemplate.content}</code>
-                  </pre>
-                </div>
-              </GlassCard>
-            ) : (
-              <GlassCard className="p-8 text-center text-white/50">
-                {loadingTemplate ? 'Loading blueprint...' : 'Select a manifest blueprint from the list.'}
-              </GlassCard>
-            )}
+          <div className="text-xl font-bold font-mono text-slate-100">
+            {readyDeployments} <span className="text-xs text-slate-500 font-normal">/ {totalDeployments}</span>
           </div>
-        </div>
-      )}
+          <div className="text-[10px] text-slate-400">Ready workloads</div>
+        </GlassCard>
 
-      {/* 6. Tab Content: Generator */}
-      {activeTab === 'generator' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <GlassCard className="lg:col-span-5 p-5 space-y-4">
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Sliders className="h-4 w-4 text-indigo-400" />
-              Configure Service Architecture
-            </h3>
-
-            <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-white/60 block mb-1">Service Name</label>
-                  <input
-                    type="text"
-                    value={customOptions.serviceName}
-                    onChange={(e) => setCustomOptions({ ...customOptions, serviceName: e.target.value })}
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/40 border border-white/[0.1] text-white font-mono focus:border-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-white/60 block mb-1">Namespace</label>
-                  <input
-                    type="text"
-                    value={customOptions.namespace}
-                    onChange={(e) => setCustomOptions({ ...customOptions, namespace: e.target.value })}
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/40 border border-white/[0.1] text-white font-mono focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-white/60 block mb-1">Container Image Tag</label>
-                <input
-                  type="text"
-                  value={customOptions.imageTag}
-                  onChange={(e) => setCustomOptions({ ...customOptions, imageTag: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded-lg bg-black/40 border border-white/[0.1] text-white font-mono focus:border-indigo-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-white/60 block mb-1">Port</label>
-                  <input
-                    type="number"
-                    value={customOptions.containerPort}
-                    onChange={(e) => setCustomOptions({ ...customOptions, containerPort: parseInt(e.target.value) || 8080 })}
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/40 border border-white/[0.1] text-white font-mono focus:border-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-white/60 block mb-1">Replicas</label>
-                  <input
-                    type="number"
-                    value={customOptions.replicas}
-                    onChange={(e) => setCustomOptions({ ...customOptions, replicas: parseInt(e.target.value) || 3 })}
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/40 border border-white/[0.1] text-white font-mono focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="text-white/60 block mb-1">CPU Req / Limit</label>
-                  <input
-                    type="text"
-                    value={`${customOptions.cpuRequest} / ${customOptions.cpuLimit}`}
-                    readOnly
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/20 border border-white/[0.05] text-white/50 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="text-white/60 block mb-1">Memory Req / Limit</label>
-                  <input
-                    type="text"
-                    value={`${customOptions.memoryRequest} / ${customOptions.memoryLimit}`}
-                    readOnly
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/20 border border-white/[0.05] text-white/50 font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-white/[0.06]">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={customOptions.enableIngress}
-                    onChange={(e) => setCustomOptions({ ...customOptions, enableIngress: e.target.checked })}
-                    className="rounded bg-black/40 border-white/[0.1] text-indigo-600 focus:ring-0"
-                  />
-                  <span className="text-white/80">Include Ingress (Nginx Reverse Proxy)</span>
-                </label>
-                {customOptions.enableIngress && (
-                  <input
-                    type="text"
-                    value={customOptions.ingressHost}
-                    onChange={(e) => setCustomOptions({ ...customOptions, ingressHost: e.target.value })}
-                    placeholder="Host domain (e.g. app.devweave.internal)"
-                    className="w-full px-3 py-1.5 rounded-lg bg-black/40 border border-white/[0.1] text-white font-mono focus:border-indigo-500"
-                  />
-                )}
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-white/[0.06]">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={customOptions.enableHpa}
-                    onChange={(e) => setCustomOptions({ ...customOptions, enableHpa: e.target.checked })}
-                    className="rounded bg-black/40 border-white/[0.1] text-indigo-600 focus:ring-0"
-                  />
-                  <span className="text-white/80">Include HPA (2 to 10 Replicas @ 80% CPU)</span>
-                </label>
-              </div>
-            </div>
-
-            <button
-              onClick={() => void handleGenerateCustom()}
-              disabled={generating}
-              className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg transition-all"
-            >
-              {generating ? 'Generating Manifests...' : 'Regenerate Multi-Doc YAML'}
-            </button>
-          </GlassCard>
-
-          <GlassCard className="lg:col-span-7 p-5 space-y-3">
-            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
-              <span className="text-xs font-semibold text-white">Generated Multi-Document YAML</span>
-              <button
-                onClick={() => handleCopy(generatedYaml, 'generated')}
-                disabled={!generatedYaml}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-white/[0.06] hover:bg-white/[0.1] text-white text-xs font-medium transition-all disabled:opacity-50"
-              >
-                {copiedType === 'generated' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                <span>{copiedType === 'generated' ? 'Copied' : 'Copy Multi-Doc'}</span>
-              </button>
-            </div>
-            <pre className="bg-black/60 p-4 rounded-xl border border-white/[0.08] text-xs font-mono text-zinc-200 overflow-x-auto leading-relaxed max-h-[460px]">
-              <code>{generatedYaml || 'Click regenerate to create YAML...'}</code>
-            </pre>
-          </GlassCard>
-        </div>
-      )}
-
-      {/* 7. Tab Content: Validator */}
-      {activeTab === 'validator' && (
-        <GlassCard className="p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
-            <div>
-              <h3 className="text-base font-semibold text-white">Kubernetes Manifest Validator</h3>
-              <p className="text-xs text-white/60 mt-0.5">
-                Paste any single or multi-document Kubernetes YAML to verify apiVersion, kind, and structure.
-              </p>
-            </div>
-            <button
-              onClick={() => void handleValidate()}
-              disabled={validating}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg transition-all"
-            >
-              <CheckSquare className="h-3.5 w-3.5" />
-              <span>{validating ? 'Validating...' : 'Validate YAML'}</span>
-            </button>
+        <GlassCard className="p-3.5 space-y-1">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Pods</span>
+            <Cpu className="w-4 h-4 text-emerald-400" />
           </div>
+          <div className="text-xl font-bold font-mono text-slate-100">
+            {runningPods} <span className="text-xs text-slate-500 font-normal">/ {totalPods}</span>
+          </div>
+          <div className="text-[10px] text-slate-400">Running pods</div>
+        </GlassCard>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-8 space-y-2">
-              <label className="text-xs font-mono text-white/40 block">YAML Editor</label>
-              <textarea
-                rows={12}
-                value={yamlToValidate}
-                onChange={(e) => setYamlToValidate(e.target.value)}
-                className="w-full p-4 rounded-xl bg-black/60 border border-white/[0.1] text-xs font-mono text-zinc-200 focus:outline-none focus:border-indigo-500 leading-relaxed resize-y"
-              />
-            </div>
+        <GlassCard className="p-3.5 space-y-1">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Services</span>
+            <Network className="w-4 h-4 text-blue-400" />
+          </div>
+          <div className="text-xl font-bold font-mono text-slate-100">{totalServices}</div>
+          <div className="text-[10px] text-slate-400">Network endpoints</div>
+        </GlassCard>
 
-            <div className="lg:col-span-4 space-y-3">
-              <label className="text-xs font-semibold text-white/40 uppercase tracking-wider block">
-                Validation Telemetry
-              </label>
+        <GlassCard className="p-3.5 space-y-1">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Nodes</span>
+            <Server className="w-4 h-4 text-purple-400" />
+          </div>
+          <div className="text-xl font-bold font-mono text-slate-100">
+            {readyNodes} <span className="text-xs text-slate-500 font-normal">/ {totalNodes}</span>
+          </div>
+          <div className="text-[10px] text-slate-400">Cluster nodes ready</div>
+        </GlassCard>
 
-              {validationResult ? (
-                <div
-                  className={`p-4 rounded-xl border space-y-2 ${
-                    validationResult.valid
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                      : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {validationResult.valid ? (
-                      <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                    ) : (
-                      <AlertCircle className="h-5 w-5 text-rose-400" />
-                    )}
-                    <span className="font-semibold text-sm">
-                      {validationResult.valid ? 'Valid Manifest' : 'Validation Failed'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-white/70">
-                    Parsed {validationResult.parsedDocuments} resource document(s).
-                  </p>
-                  {validationResult.errors.length > 0 && (
-                    <ul className="text-xs text-rose-400 space-y-1 list-disc list-inside pt-1">
-                      {validationResult.errors.map((err, i) => (
-                        <li key={i}>{err}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ) : (
-                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-xs text-white/50 text-center">
-                  Click "Validate YAML" to run syntax verification.
-                </div>
-              )}
-            </div>
+        <GlassCard className="p-3.5 space-y-1">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Storage PVCs</span>
+            <HardDrive className="w-4 h-4 text-amber-400" />
+          </div>
+          <div className="text-xl font-bold font-mono text-slate-100">
+            {boundPvcs} <span className="text-xs text-slate-500 font-normal">/ {totalPvcs}</span>
+          </div>
+          <div className="text-[10px] text-slate-400">Persistent claims bound</div>
+        </GlassCard>
+
+        <GlassCard className="p-3.5 space-y-1">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Context</span>
+            <Layers className="w-4 h-4 text-indigo-400" />
+          </div>
+          <div className="text-sm font-bold font-mono text-slate-100 truncate" title={clusterStatus?.currentContext || 'none'}>
+            {clusterStatus?.currentContext || 'none'}
+          </div>
+          <div className="text-[10px] text-slate-400 truncate">
+            {clusterStatus?.serverVersion || 'v1.28+'}
           </div>
         </GlassCard>
+      </div>
+
+      {/* Primary Tab Navigation */}
+      <div className="flex items-center space-x-2 border-b border-slate-800 pb-2 text-sm overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('workloads')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition whitespace-nowrap ${
+            activeTab === 'workloads'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+          }`}
+        >
+          <Boxes className="w-4 h-4" />
+          <span>Workloads</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('networking')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition whitespace-nowrap ${
+            activeTab === 'networking'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+          }`}
+        >
+          <Network className="w-4 h-4" />
+          <span>Networking</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('config')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition whitespace-nowrap ${
+            activeTab === 'config'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+          }`}
+        >
+          <Key className="w-4 h-4" />
+          <span>Configuration & Storage</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('cluster')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition whitespace-nowrap ${
+            activeTab === 'cluster'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+          }`}
+        >
+          <Server className="w-4 h-4" />
+          <span>Cluster & Nodes</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('editor')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition whitespace-nowrap ${
+            activeTab === 'editor'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+          }`}
+        >
+          <FileCode className="w-4 h-4" />
+          <span>Manifest & YAML Editor</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('audit')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition whitespace-nowrap ${
+            activeTab === 'audit'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+          }`}
+        >
+          <Activity className="w-4 h-4" />
+          <span>Activity & Audit ({auditLogs.length})</span>
+        </button>
+      </div>
+
+      {/* Tab Panels */}
+      {activeTab === 'workloads' && (
+        <K8sWorkloadsManager
+          deployments={inventory?.deployments || []}
+          pods={inventory?.pods || []}
+          statefulSets={inventory?.statefulSets || []}
+          daemonSets={inventory?.daemonSets || []}
+          replicaSets={inventory?.replicaSets || []}
+          jobs={inventory?.jobs || []}
+          cronJobs={inventory?.cronJobs || []}
+          selectedNamespace={selectedNamespace}
+          searchTerm={searchTerm}
+          onScale={handleScale}
+          onRestart={handleRestart}
+          onDelete={handleDeleteResource}
+          onRefresh={() => fetchData(true)}
+        />
+      )}
+
+      {activeTab === 'networking' && (
+        <K8sNetworkingManager
+          services={inventory?.services || []}
+          ingresses={inventory?.ingresses || []}
+          networkPolicies={inventory?.networkPolicies || []}
+          selectedNamespace={selectedNamespace}
+          searchTerm={searchTerm}
+          onDelete={handleDeleteResource}
+          onRefresh={() => fetchData(true)}
+        />
+      )}
+
+      {activeTab === 'config' && (
+        <K8sConfigStorageManager
+          configMaps={inventory?.configMaps || []}
+          secrets={inventory?.secrets || []}
+          pvcs={inventory?.persistentVolumeClaims || []}
+          pvs={inventory?.persistentVolumes || []}
+          storageClasses={inventory?.storageClasses || []}
+          serviceAccounts={inventory?.serviceAccounts || []}
+          selectedNamespace={selectedNamespace}
+          searchTerm={searchTerm}
+          onDelete={handleDeleteResource}
+          onRefresh={() => fetchData(true)}
+        />
+      )}
+
+      {activeTab === 'cluster' && (
+        <K8sClusterManager
+          nodes={inventory?.nodes || []}
+          namespaces={inventory?.namespaces || []}
+          events={inventory?.events || []}
+          selectedNamespace={selectedNamespace}
+          searchTerm={searchTerm}
+          onDeleteNamespace={handleDeleteNamespace}
+          onRefresh={() => fetchData(true)}
+        />
+      )}
+
+      {activeTab === 'editor' && (
+        <K8sManifestEditor onApplied={() => fetchData(true)} />
+      )}
+
+      {activeTab === 'audit' && (
+        <K8sAuditLogsManager auditLogs={auditLogs} />
       )}
     </div>
   );

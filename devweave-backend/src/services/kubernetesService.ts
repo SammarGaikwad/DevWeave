@@ -1,5 +1,7 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import YAML from 'yaml';
+import { getKubernetesRunnerSnapshot } from './kubernetesRunnerService.js';
 
 const execAsync = promisify(exec);
 
@@ -237,6 +239,40 @@ data:
 };
 
 export async function checkClusterStatus(): Promise<ClusterStatus> {
+  const runnerState = getKubernetesRunnerSnapshot();
+  if (runnerState.online && runnerState.snapshot) {
+    const snap = runnerState.snapshot;
+    if (snap.clusterConnected) {
+      return {
+        kubectlInstalled: true,
+        clientVersion: snap.kubectlVersion || 'Installed',
+        clusterConnected: true,
+        currentContext: snap.currentContext || 'default',
+        clusterEndpoint: snap.clusterEndpoint || null,
+        serverVersion: snap.serverVersion || 'Connected',
+        status: 'CONNECTED',
+        message: `Connected to Kubernetes cluster via runner "${snap.runnerId}" (context: "${snap.currentContext || 'default'}").`,
+        setupInstructions: [],
+      };
+    } else {
+      return {
+        kubectlInstalled: !!snap.kubectlVersion,
+        clientVersion: snap.kubectlVersion || null,
+        clusterConnected: false,
+        currentContext: snap.currentContext || null,
+        clusterEndpoint: null,
+        serverVersion: null,
+        status: 'DISCONNECTED',
+        message: snap.error || 'Kubernetes runner is online, but no live cluster is currently reachable.',
+        setupInstructions: [
+          'Ensure Kubernetes is enabled in Docker Desktop (Settings > Kubernetes > Enable Kubernetes)',
+          'Or start a local Minikube / Kind cluster: minikube start',
+          'Verify active context with: kubectl config get-contexts',
+        ],
+      };
+    }
+  }
+
   let clientVersion: string | null = null;
   let currentContext: string | null = null;
 
@@ -424,24 +460,88 @@ spec:
   return parts.join('\n---\n');
 }
 
-export function validateK8sYaml(yamlContent: string): { valid: boolean; errors: string[]; parsedDocuments: number } {
+export interface K8sParsedResource {
+  apiVersion: string;
+  kind: string;
+  name: string;
+  namespace?: string;
+}
+
+export function validateK8sYaml(yamlContent: string): {
+  valid: boolean;
+  errors: string[];
+  parsedDocuments: number;
+  resources: K8sParsedResource[];
+} {
   const errors: string[] = [];
-  const docs = yamlContent.split(/---/).map((d) => d.trim()).filter((d) => d.length > 0);
+  const resources: K8sParsedResource[] = [];
+
+  if (!yamlContent || !yamlContent.trim()) {
+    return { valid: false, errors: ['Manifest is empty.'], parsedDocuments: 0, resources: [] };
+  }
+
+  let docs: YAML.Document.Parsed[];
+  try {
+    docs = YAML.parseAllDocuments(yamlContent);
+  } catch (err: any) {
+    return { valid: false, errors: [`YAML Syntax Error: ${err.message}`], parsedDocuments: 0, resources: [] };
+  }
 
   if (docs.length === 0) {
-    return { valid: false, errors: ['Manifest is empty.'], parsedDocuments: 0 };
+    return { valid: false, errors: ['Manifest is empty.'], parsedDocuments: 0, resources: [] };
   }
 
   docs.forEach((doc, idx) => {
     const docNumber = idx + 1;
-    if (!doc.includes('apiVersion:')) {
+    if (doc.errors && doc.errors.length > 0) {
+      doc.errors.forEach((e) => {
+        errors.push(`Document #${docNumber} YAML error: ${e.message} at line ${e.linePos?.[0]?.line || '?'}`);
+      });
+      return;
+    }
+
+    const json = doc.toJSON();
+    if (!json || typeof json !== 'object') {
+      errors.push(`Document #${docNumber} is not a valid Kubernetes object.`);
+      return;
+    }
+
+    if (!json.apiVersion || typeof json.apiVersion !== 'string') {
       errors.push(`Document #${docNumber} is missing "apiVersion".`);
     }
-    if (!doc.includes('kind:')) {
+
+    if (!json.kind || typeof json.kind !== 'string') {
       errors.push(`Document #${docNumber} is missing "kind".`);
     }
-    if (!doc.includes('metadata:')) {
+
+    if (!json.metadata || typeof json.metadata !== 'object') {
       errors.push(`Document #${docNumber} is missing "metadata" block.`);
+    } else if (!json.metadata.name || typeof json.metadata.name !== 'string') {
+      errors.push(`Document #${docNumber} is missing "metadata.name".`);
+    }
+
+    // Consistency checks
+    if (json.kind === 'Deployment' && json.spec) {
+      const matchLabels = json.spec.selector?.matchLabels;
+      const templateLabels = json.spec.template?.metadata?.labels;
+      if (matchLabels && templateLabels) {
+        for (const [k, v] of Object.entries(matchLabels)) {
+          if (templateLabels[k] !== v) {
+            errors.push(
+              `Document #${docNumber} (Deployment "${json.metadata?.name}"): selector label "${k}=${v}" does not match template label "${k}=${templateLabels[k]}".`
+            );
+          }
+        }
+      }
+    }
+
+    if (json.apiVersion && json.kind && json.metadata?.name) {
+      resources.push({
+        apiVersion: json.apiVersion,
+        kind: json.kind,
+        name: json.metadata.name,
+        namespace: json.metadata.namespace,
+      });
     }
   });
 
@@ -449,5 +549,7 @@ export function validateK8sYaml(yamlContent: string): { valid: boolean; errors: 
     valid: errors.length === 0,
     errors,
     parsedDocuments: docs.length,
+    resources,
   };
 }
+

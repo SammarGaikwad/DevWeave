@@ -21,3 +21,15 @@ export const dockerRunnerRateLimiter = rateLimit({
     message: 'Too many Docker runner heartbeat requests.',
   },
 });
+
+export const kubernetesRunnerRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many Kubernetes runner heartbeat requests.',
+  },
+});
+
