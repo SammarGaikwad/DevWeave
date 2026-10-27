@@ -12,8 +12,10 @@ import {
   Terminal,
   ShieldCheck,
   Info,
+  Square,
 } from 'lucide-react';
 import { useChatbot, type ChatItem } from '../../context/ChatbotContext';
+import { SUGGESTED_PROMPTS } from '../../services/aiService';
 
 export const FloatingChatbot: React.FC = () => {
   const {
@@ -25,6 +27,7 @@ export const FloatingChatbot: React.FC = () => {
     error,
     providerStatus,
     sendMessage,
+    stopGeneration,
     clearMessages,
     retryLastMessage,
   } = useChatbot();
@@ -313,7 +316,7 @@ export const FloatingChatbot: React.FC = () => {
 
             {/* Typing / Loading indicator */}
             {isLoading && (
-              <div className="flex flex-col items-start">
+              <div className="flex flex-col items-start space-y-1.5">
                 <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-slate-900/90 border border-slate-800/90 flex items-center space-x-2 text-indigo-400 text-xs">
                   <Sparkles className="w-3.5 h-3.5 animate-spin" />
                   <span className="text-slate-300">Analyzing query...</span>
@@ -323,6 +326,13 @@ export const FloatingChatbot: React.FC = () => {
                     <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
                   </div>
                 </div>
+                <button
+                  onClick={stopGeneration}
+                  className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[11px] font-medium transition flex items-center space-x-1"
+                >
+                  <Square className="w-2.5 h-2.5 fill-rose-300" />
+                  <span>Stop generating</span>
+                </button>
               </div>
             )}
 
@@ -348,25 +358,16 @@ export const FloatingChatbot: React.FC = () => {
 
           {/* Quick Prompts when only welcome message exists */}
           {messages.length === 1 && (
-            <div className="px-3 pb-2 flex items-center space-x-1.5 overflow-x-auto text-[11px] shrink-0">
-              <button
-                onClick={() => sendMessage('Why did my build fail with vitest: not found?')}
-                className="px-2.5 py-1 rounded-lg bg-slate-900/80 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-300 border border-slate-800 transition whitespace-nowrap"
-              >
-                ⚡ Diagnose Vitest Failure
-              </button>
-              <button
-                onClick={() => sendMessage('How do I deploy a Kubernetes service?')}
-                className="px-2.5 py-1 rounded-lg bg-slate-900/80 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-300 border border-slate-800 transition whitespace-nowrap"
-              >
-                ☸️ Deploy K8s Service
-              </button>
-              <button
-                onClick={() => sendMessage('Troubleshoot Docker daemon connection')}
-                className="px-2.5 py-1 rounded-lg bg-slate-900/80 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-300 border border-slate-800 transition whitespace-nowrap"
-              >
-                🐳 Docker Troubleshooting
-              </button>
+            <div className="px-3 pb-2 flex items-center space-x-1.5 overflow-x-auto text-[11px] shrink-0 scrollbar-none">
+              {SUGGESTED_PROMPTS.slice(0, 4).map((prompt, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => sendMessage(prompt)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-900/80 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-300 border border-slate-800 transition whitespace-nowrap"
+                >
+                  {prompt}
+                </button>
+              ))}
             </div>
           )}
 

@@ -24,12 +24,12 @@ const aiChatSchema = z.object({
     .string()
     .trim()
     .min(1, 'Message is required and cannot be empty.')
-    .max(4000, 'Message cannot exceed 4000 characters.'),
+    .max(8000, 'Message cannot exceed 8,000 characters.'),
   history: z
     .array(
       z.object({
         role: z.enum(['user', 'assistant', 'system']),
-        content: z.string().max(4000),
+        content: z.string().max(8000),
       })
     )
     .optional()

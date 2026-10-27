@@ -12,22 +12,27 @@ export interface ChatResponse {
   engineType: 'LLM_PROVIDER' | 'RULE_BASED_DIAGNOSTIC_ENGINE';
   provider: 'OPENAI' | 'GEMINI' | 'DETERMINISTIC_RULES';
   modelName: string;
+  isProviderConfigured?: boolean;
+  isProviderError?: boolean;
   diagnosis?: DiagnosticResult;
   suggestedActions?: { label: string; action: string }[];
 }
 
-const SYSTEM_PROMPT = `You are the DevWeave AI Assistant, an expert DevOps engineer and cloud infrastructure specialist embedded into the DevWeave platform.
-DevWeave is an integrated DevOps and container orchestration platform featuring:
-- Kubernetes Management: Deployments, Pods, StatefulSets, DaemonSets, Services, Ingresses, PVCs, ConfigMaps, Secrets, Rollout Restarts, Scaling, and live inventory.
-- Docker Management: Containers, Images, Networks, Volumes, and local runner execution.
-- CI/CD Pipelines: Automated build stages, Jenkins integration, and GitHub repositories.
-- Diagnostic Engine: Automated root-cause log failure analysis.
+export const DEVOPS_COPILOT_SYSTEM_PROMPT = `You are the DevWeave AI Assistant, an expert DevOps engineering copilot and cloud infrastructure specialist embedded into the DevWeave platform.
 
-Provide concise, technically precise, and actionable assistance with code/CLI snippets formatted in markdown.`;
+Your mission is to help engineers troubleshoot build failures, configure CI/CD pipelines, optimize Docker containers, manage Kubernetes workloads, and understand application code.
+
+Core Operating Principles:
+1. Technical Precision: Provide technically rigorous, production-grade solutions. Explain the root causes behind errors, not just copy-paste snippets.
+2. Safety & Caution: ALWAYS flag potentially destructive commands (e.g. "kubectl delete", "docker rm -f", "rm -rf", "git reset --hard", database drops) with explicit [WARNING: DESTRUCTIVE ACTION] callouts before showing them.
+3. Transparency: Distinguish verified facts from hypotheses. If log output or context is incomplete, clearly state what information is missing and ask clarifying questions.
+4. Boundaries: You are an advisory copilot. You cannot directly execute shell commands, modify cluster states, or trigger cloud deployments on the user's infrastructure without them running the commands themselves. Do not hallucinate having live access to private clusters, credentials, or repositories unless the user provides the context in the chat.
+5. Code Formatting: Format code, scripts, manifests, and CLI commands cleanly using GitHub-flavored markdown with language tags (e.g. bash, typescript, yaml, dockerfile, json). Include verification commands (e.g. "kubectl get pods", "docker ps") so the user can verify their fix.`;
 
 /**
- * Dispatches chat messages to the configured external LLM (OpenAI/Gemini)
- * or falls back to the deterministic DevOps heuristic diagnostic engine.
+ * Dispatches chat messages to the configured external LLM (OpenAI or Gemini),
+ * returning real generative AI responses when configured, or transparent
+ * provider-unavailable messages and deterministic diagnostics when unconfigured.
  */
 export async function processChatMessage(
   message: string,
@@ -37,17 +42,17 @@ export async function processChatMessage(
 
   // 1. Check for real OpenAI integration
   if (env.OPENAI_API_KEY) {
+    const openAiBaseUrl = env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+    const messages = [
+      { role: 'system', content: DEVOPS_COPILOT_SYSTEM_PROMPT },
+      ...history.slice(-8).map((h) => ({ role: h.role, content: h.content })),
+      { role: 'user', content: trimmed },
+    ];
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     try {
-      const openAiBaseUrl = env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
-      const messages = [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...history.slice(-6).map((h) => ({ role: h.role, content: h.content })),
-        { role: 'user', content: trimmed },
-      ];
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000);
-
       const res = await fetch(`${openAiBaseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -58,46 +63,97 @@ export async function processChatMessage(
           model: env.OPENAI_MODEL,
           messages,
           temperature: 0.3,
-          max_tokens: 1000,
+          max_tokens: 1500,
         }),
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
 
-      if (res.ok) {
-        const data = (await res.json()) as any;
-        const reply = data.choices?.[0]?.message?.content?.trim();
-        if (reply) {
+      if (!res.ok) {
+        const errorBody = (await res.json().catch(() => ({}))) as any;
+        const errMsg = errorBody?.error?.message || res.statusText || 'Unknown provider error';
+
+        if (res.status === 401) {
           return {
-            message: reply,
-            isAIGenerated: true,
+            message: `### 🔒 OpenAI Authentication Error\n\nThe configured \`OPENAI_API_KEY\` was rejected by OpenAI (HTTP 401).\n\n**Details:** ${errMsg}\n\nPlease verify your API key in the backend environment configuration.`,
+            isAIGenerated: false,
             engineType: 'LLM_PROVIDER',
             provider: 'OPENAI',
             modelName: env.OPENAI_MODEL,
+            isProviderError: true,
           };
         }
+        if (res.status === 429) {
+          return {
+            message: `### ⚠️ OpenAI Rate Limit / Quota Exceeded\n\nOpenAI returned HTTP 429: Rate limit or credit quota exceeded.\n\n**Details:** ${errMsg}\n\nPlease check your OpenAI billing plan and usage quota.`,
+            isAIGenerated: false,
+            engineType: 'LLM_PROVIDER',
+            provider: 'OPENAI',
+            modelName: env.OPENAI_MODEL,
+            isProviderError: true,
+          };
+        }
+        return {
+          message: `### ⚠️ OpenAI Provider Error (${res.status})\n\nOpenAI request failed: ${errMsg}`,
+          isAIGenerated: false,
+          engineType: 'LLM_PROVIDER',
+          provider: 'OPENAI',
+          modelName: env.OPENAI_MODEL,
+          isProviderError: true,
+        };
       }
-    } catch {
-      // Fall through to deterministic engine if OpenAI network call fails
+
+      const data = (await res.json()) as any;
+      const reply = data.choices?.[0]?.message?.content?.trim();
+      if (reply) {
+        return {
+          message: reply,
+          isAIGenerated: true,
+          engineType: 'LLM_PROVIDER',
+          provider: 'OPENAI',
+          modelName: env.OPENAI_MODEL,
+          isProviderConfigured: true,
+        };
+      }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        return {
+          message: `### ⏱️ OpenAI Request Timeout\n\nThe request to OpenAI timed out after 30 seconds. Please try again with a shorter prompt or verify connectivity.`,
+          isAIGenerated: false,
+          engineType: 'LLM_PROVIDER',
+          provider: 'OPENAI',
+          modelName: env.OPENAI_MODEL,
+          isProviderError: true,
+        };
+      }
+      return {
+        message: `### ⚠️ OpenAI Connection Failure\n\nFailed to connect to OpenAI endpoint: ${err.message || 'Network error'}`,
+        isAIGenerated: false,
+        engineType: 'LLM_PROVIDER',
+        provider: 'OPENAI',
+        modelName: env.OPENAI_MODEL,
+        isProviderError: true,
+      };
     }
   }
 
   // 2. Check for real Gemini integration
   if (env.GEMINI_API_KEY) {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
+    const contents = [
+      ...history.slice(-6).map((h) => ({
+        role: h.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: h.content }],
+      })),
+      { role: 'user', parts: [{ text: `${DEVOPS_COPILOT_SYSTEM_PROMPT}\n\nUser Question:\n${trimmed}` }] },
+    ];
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
-      const contents = [
-        ...history.slice(-4).map((h) => ({
-          role: h.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: h.content }],
-        })),
-        { role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\nUser Question:\n${trimmed}` }] },
-      ];
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000);
-
       const res = await fetch(geminiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,59 +163,77 @@ export async function processChatMessage(
 
       clearTimeout(timeoutId);
 
-      if (res.ok) {
-        const data = (await res.json()) as any;
-        const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-        if (candidate) {
-          return {
-            message: candidate,
-            isAIGenerated: true,
-            engineType: 'LLM_PROVIDER',
-            provider: 'GEMINI',
-            modelName: env.GEMINI_MODEL,
-          };
-        }
+      if (!res.ok) {
+        const errorBody = (await res.json().catch(() => ({}))) as any;
+        const errMsg = errorBody?.error?.message || res.statusText || 'Gemini error';
+        return {
+          message: `### ⚠️ Gemini Provider Error (${res.status})\n\nGoogle Gemini request failed: ${errMsg}`,
+          isAIGenerated: false,
+          engineType: 'LLM_PROVIDER',
+          provider: 'GEMINI',
+          modelName: env.GEMINI_MODEL,
+          isProviderError: true,
+        };
       }
-    } catch {
-      // Fall through to deterministic engine if Gemini call fails
+
+      const data = (await res.json()) as any;
+      const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (candidate) {
+        return {
+          message: candidate,
+          isAIGenerated: true,
+          engineType: 'LLM_PROVIDER',
+          provider: 'GEMINI',
+          modelName: env.GEMINI_MODEL,
+          isProviderConfigured: true,
+        };
+      }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        return {
+          message: `### ⏱️ Gemini Request Timeout\n\nThe request to Google Gemini timed out after 30 seconds.`,
+          isAIGenerated: false,
+          engineType: 'LLM_PROVIDER',
+          provider: 'GEMINI',
+          modelName: env.GEMINI_MODEL,
+          isProviderError: true,
+        };
+      }
+      return {
+        message: `### ⚠️ Gemini Connection Failure\n\nFailed to connect to Google Gemini endpoint: ${err.message || 'Network error'}`,
+        isAIGenerated: false,
+        engineType: 'LLM_PROVIDER',
+        provider: 'GEMINI',
+        modelName: env.GEMINI_MODEL,
+        isProviderError: true,
+      };
     }
   }
 
-  // 3. Deterministic DevOps Diagnostic & Query Engine
-  return processDeterministicDevOpsQuery(trimmed);
-}
-
-/**
- * Intelligent deterministic DevOps reasoning engine.
- * Retains and leverages the existing rule-based diagnostic engine,
- * identifying rule-based results with complete transparency.
- */
-function processDeterministicDevOpsQuery(query: string): ChatResponse {
-  const lower = query.toLowerCase();
-
-  // A. Check if the message is a log snippet or error output
+  // 3. Fallback when neither OpenAI nor Gemini is configured
+  // Check if user is asking to diagnose a build/test log snippet
   const isLogOrError =
-    query.includes('\n') ||
-    lower.includes('error') ||
-    lower.includes('failed') ||
-    lower.includes('vitest: not found') ||
-    lower.includes('ts2322') ||
-    lower.includes('error ts') ||
-    lower.includes('econnrefused') ||
-    lower.includes('cannot connect to the docker daemon') ||
-    lower.includes('heap out of memory') ||
-    lower.includes('connection refused') ||
-    lower.includes('exception');
+    trimmed.includes('\n') &&
+    (trimmed.toLowerCase().includes('error') ||
+      trimmed.toLowerCase().includes('failed') ||
+      trimmed.toLowerCase().includes('vitest') ||
+      trimmed.toLowerCase().includes('ts2322') ||
+      trimmed.toLowerCase().includes('econnrefused') ||
+      trimmed.toLowerCase().includes('docker daemon') ||
+      trimmed.toLowerCase().includes('crashloopbackoff') ||
+      trimmed.toLowerCase().includes('imagepullbackoff') ||
+      trimmed.toLowerCase().includes('exception'));
 
   if (isLogOrError) {
-    const diagnosis = diagnoseBuildLog(query);
+    const diagnosis = diagnoseBuildLog(trimmed);
 
     const fixesMarkdown = diagnosis.recommendedFixes
       .map(
         (fix, i) =>
           `**${i + 1}. ${fix.title}**\n${fix.description}${
             fix.command ? `\n\`\`\`bash\n${fix.command}\n\`\`\`` : ''
-          }${fix.codeSnippet ? `\n\`\`\`typescript\n${fix.codeSnippet}\n\`\`\`` : ''}`
+          }${fix.codeSnippet ? `\n\`\`\`\n${fix.codeSnippet}\n\`\`\`` : ''}`
       )
       .join('\n\n');
 
@@ -194,160 +268,39 @@ ${diagnosis.preventionGuideline}
     };
   }
 
-  // B. Kubernetes Guidance
-  if (
-    lower.includes('kubernetes') ||
-    lower.includes('k8s') ||
-    lower.includes('deployment') ||
-    lower.includes('service') ||
-    lower.includes('pod') ||
-    lower.includes('ingress') ||
-    lower.includes('pvc') ||
-    lower.includes('scale') ||
-    lower.includes('rollout')
-  ) {
-    let specificGuide = '';
-    if (lower.includes('service')) {
-      specificGuide = `
-**Services in DevWeave:**
-- **Create Service**: Open **Kubernetes → Networking → Services**, then click **+ Create Service**. Fill in service name, target port, protocol, and deployment selector.
-- **Service Types**: Choose \`ClusterIP\` (internal), \`NodePort\` (node port 30000-32767), or \`LoadBalancer\` (cloud external IP).
-- **Protection**: System services such as \`default/kubernetes\` are protected from accidental deletion.`;
-    } else if (lower.includes('deployment') || lower.includes('scale') || lower.includes('rollout')) {
-      specificGuide = `
-**Deployment Management in DevWeave:**
-- **Deploy Workload**: Open **Kubernetes → Workloads**, click **+ Deploy Workload** to specify image, replicas, ports, and resource limits.
-- **Zero-Downtime Rollout Restart**: Click the **RotateCcw (Restart)** icon on any deployment or daemonset.
-- **Scaling**: Click the **Sliders (Scale)** icon to adjust replica count instantly via \`kubectl scale\`.`;
-    } else {
-      specificGuide = `
-**Kubernetes Dashboard Capabilities:**
-- **Workloads**: Deployments, Pods, StatefulSets, DaemonSets, Jobs, CronJobs.
-- **Networking**: Services, Ingresses, NetworkPolicies.
-- **Config & Storage**: ConfigMaps, Secrets (audited reveal), PVCs, StorageClasses.
-- **Cluster & Nodes**: Node conditions, allocatable resources, and namespace isolation.`;
-    }
-
-    return {
-      message: `### ☸️ Kubernetes Resource Management
-${specificGuide}
-
-You can also paste raw manifests or execution logs into this chat anytime for instant validation and diagnosis.`,
-      isAIGenerated: false,
-      engineType: 'RULE_BASED_DIAGNOSTIC_ENGINE',
-      provider: 'DETERMINISTIC_RULES',
-      modelName: 'DevWeave Static Diagnostic Engine v1.0',
-      suggestedActions: [
-        { label: 'View Workloads', action: 'Navigate to Kubernetes Workloads' },
-        { label: 'View Services', action: 'Navigate to Kubernetes Networking' },
-      ],
-    };
-  }
-
-  // C. Docker Guidance
-  if (
-    lower.includes('docker') ||
-    lower.includes('container') ||
-    lower.includes('image') ||
-    lower.includes('volume') ||
-    lower.includes('network')
-  ) {
-    return {
-      message: `### 🐳 Docker Management in DevWeave
-
-DevWeave integrates with your local Docker Desktop runner to provide live container orchestration:
-- **Containers**: Launch containers with custom port mappings, restart policies, and environment variables. Start, stop, restart, or inspect logs in real time.
-- **Images**: Pull images directly from Docker Hub, tag, or clean up unused image layers.
-- **Networks & Volumes**: Create bridge networks and persistent named volumes to isolate application state.
-
-**Common Tip:** If container launch fails, verify that your local Docker runner is running via \`npm run runner:docker\` and the daemon socket is accessible.`,
-      isAIGenerated: false,
-      engineType: 'RULE_BASED_DIAGNOSTIC_ENGINE',
-      provider: 'DETERMINISTIC_RULES',
-      modelName: 'DevWeave Static Diagnostic Engine v1.0',
-      suggestedActions: [
-        { label: 'Check Docker Status', action: 'Navigate to Docker Management' },
-      ],
-    };
-  }
-
-  // D. CI/CD & Pipeline Guidance
-  if (lower.includes('pipeline') || lower.includes('jenkins') || lower.includes('build') || lower.includes('ci/cd')) {
-    return {
-      message: `### 🚀 CI/CD Pipeline Automation
-
-DevWeave automates continuous integration and delivery across your repositories:
-- **Pipeline Templates**: Node.js, Python, Java, Docker containerization, and Kubernetes deployments.
-- **Execution Stages**: Code checkout, dependency resolution (\`npm ci\`), test execution (\`vitest\`), linting, and image push.
-- **Jenkins Runner**: Automated trigger via Jenkins REST API with real-time log streaming.
-
-If a pipeline build fails, copy the terminal log snippet and paste it right here — our diagnostic engine will pinpoint the exact failure cause.`,
-      isAIGenerated: false,
-      engineType: 'RULE_BASED_DIAGNOSTIC_ENGINE',
-      provider: 'DETERMINISTIC_RULES',
-      modelName: 'DevWeave Static Diagnostic Engine v1.0',
-      suggestedActions: [
-        { label: 'View Pipelines', action: 'Navigate to Pipelines' },
-      ],
-    };
-  }
-
-  // E. LLM Provider Configuration Question
-  if (
-    lower.includes('llm') ||
-    lower.includes('openai') ||
-    lower.includes('gemini') ||
-    lower.includes('api key') ||
-    lower.includes('configure')
-  ) {
-    return {
-      message: `### 🤖 AI Provider Configuration
-
-DevWeave is currently running on the **Built-in Deterministic DevOps Diagnostic Engine**.
-
-To enable generative conversational LLM capabilities:
-1. Open \`devweave-backend/.env\`
-2. Add your provider API key:
-   \`\`\`bash
-   # OpenAI Option
-   OPENAI_API_KEY=sk-...
-   OPENAI_MODEL=gpt-4o-mini
-
-   # OR Google Gemini Option
-   GEMINI_API_KEY=AIzaSy...
-   GEMINI_MODEL=gemini-1.5-flash
-   \`\`\`
-3. Restart the backend. DevWeave will automatically detect the key and switch to conversational LLM mode while preserving all deterministic diagnostic safety rules.`,
-      isAIGenerated: false,
-      engineType: 'RULE_BASED_DIAGNOSTIC_ENGINE',
-      provider: 'DETERMINISTIC_RULES',
-      modelName: 'DevWeave Static Diagnostic Engine v1.0',
-    };
-  }
-
-  // F. Greetings & General Help
+  // Otherwise, return truthful status: AI provider is not configured
   return {
-    message: `Hello! I am your **DevWeave AI Assistant**.
+    message: `### ⚙️ DevWeave AI Assistant — Provider Configuration Required
 
-I can assist you across the platform with:
-- 🔍 **Automated Log Diagnosis**: Paste any build or runtime error trace for instant root-cause analysis and copyable fixes.
-- ☸️ **Kubernetes Workloads**: Guidance on Deployments, Services, Ingress, Pod logs, and scaling.
-- 🐳 **Docker Operations**: Troubleshooting container networking, volumes, and runner connections.
-- 🚀 **Pipelines & CI/CD**: Jenkins build triggers, dependency resolution, and test runners.
+DevWeave features a **Real Conversational AI Copilot**, but no external generative AI provider credentials have been configured on this backend server yet.
 
-Try asking:
-- *"How do I create a Kubernetes Service?"*
-- *"Why did my build fail with vitest: not found?"*
-- *"Troubleshoot Docker daemon offline"*
-- *"How do I connect an OpenAI or Gemini API key?"*`,
+#### How to Enable Real Conversational AI:
+Set either **OpenAI** or **Google Gemini** in your backend environment variables (\`devweave-backend/.env\` or Render Environment Settings):
+
+\`\`\`bash
+# Option 1: OpenAI (Recommended)
+OPENAI_API_KEY=sk-proj-...
+OPENAI_MODEL=gpt-4o-mini
+
+# Option 2: Google Gemini
+GEMINI_API_KEY=AIzaSy...
+GEMINI_MODEL=gemini-1.5-flash
+\`\`\`
+
+*(Once configured and restarted, DevWeave will engage in full multi-turn conversational reasoning powered by your chosen model.)*
+
+---
+💡 **Looking for Log Analysis?**  
+You can use the **DevOps Diagnostic Engine** tab to diagnose CI/CD, Kubernetes, and Docker failure logs right now using our built-in deterministic heuristic engine without needing an external API key!`,
     isAIGenerated: false,
     engineType: 'RULE_BASED_DIAGNOSTIC_ENGINE',
     provider: 'DETERMINISTIC_RULES',
-    modelName: 'DevWeave Static Diagnostic Engine v1.0',
+    modelName: 'None',
+    isProviderConfigured: false,
     suggestedActions: [
-      { label: 'Diagnose Error', action: 'Paste error log' },
-      { label: 'Kubernetes Help', action: 'How do I deploy a service?' },
-      { label: 'Docker Help', action: 'Troubleshoot Docker' },
+      { label: 'Diagnose Vitest Error', action: 'Why did my build fail with vitest: not found?' },
+      { label: 'Troubleshoot Kubernetes Pod', action: 'Events:\n  Warning  BackOff  kubelet  Back-off restarting failed container web-app (exit code 137)' },
+      { label: 'Troubleshoot Docker Daemon', action: 'Cannot connect to the Docker daemon at unix:///var/run/docker.sock' },
     ],
   };
 }

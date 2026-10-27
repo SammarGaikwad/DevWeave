@@ -1,5 +1,14 @@
 import { apiClient } from './apiClient';
 
+export const SUGGESTED_PROMPTS = [
+  'Help me debug my Jenkins pipeline.',
+  'Explain this Docker error.',
+  'Why is my Kubernetes pod restarting?',
+  'Help me configure a CI/CD pipeline.',
+  'Explain this code.',
+  'Help me troubleshoot my deployment.',
+];
+
 export interface AIProviderStatus {
   provider: string;
   modelName: string;
@@ -61,11 +70,15 @@ export const aiService = {
     return res.data;
   },
 
-  async chat(message: string, history?: AIChatMessage[]): Promise<AIChatResponse> {
-    const res = await apiClient.post<{ success: boolean; data: AIChatResponse }>('/v1/ai/chat', {
-      message,
-      history: history?.map((h) => ({ role: h.role, content: h.content })),
-    });
+  async chat(message: string, history?: AIChatMessage[], signal?: AbortSignal): Promise<AIChatResponse> {
+    const res = await apiClient.post<{ success: boolean; data: AIChatResponse }>(
+      '/v1/ai/chat',
+      {
+        message,
+        history: history?.map((h) => ({ role: h.role, content: h.content })),
+      },
+      { signal }
+    );
     return res.data;
   },
 };

@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
   aiService,
   type AIProviderStatus,
   type AIChatMessage,
   type DiagnosticResult,
+  SUGGESTED_PROMPTS,
 } from '../services/aiService';
 
 export interface ChatItem {
@@ -28,6 +29,7 @@ interface ChatbotContextType {
   error: string | null;
   providerStatus: AIProviderStatus | null;
   sendMessage: (content: string) => Promise<void>;
+  stopGeneration: () => void;
   clearMessages: () => void;
   retryLastMessage: () => Promise<void>;
 }
@@ -37,19 +39,24 @@ const ChatbotContext = createContext<ChatbotContextType | undefined>(undefined);
 const INITIAL_WELCOME: ChatItem = {
   id: 'welcome-msg',
   role: 'assistant',
-  content: `Hello! I'm your **DevWeave AI Assistant**.
+  content: `👋 **Welcome to DevWeave AI Assistant** — your DevOps & Cloud Engineering Copilot.
 
-I can help diagnose build failures, guide Kubernetes and Docker operations, and troubleshoot deployment issues. How can I assist you today?`,
+I can help you:
+- Debug Jenkins CI/CD pipelines & build failures
+- Analyze Docker container errors & optimize Dockerfiles
+- Troubleshoot Kubernetes Pods, Deployments & manifests
+- Explain code snippets, scripts, and deployment configurations
+- Safely guide production remediation with actionable commands
+
+*Ask any question or pick one of the suggested prompts below to get started:*`,
   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   isAIGenerated: false,
   engineType: 'RULE_BASED_DIAGNOSTIC_ENGINE',
   provider: 'DETERMINISTIC_RULES',
-  suggestedActions: [
-    { label: '⚡ Diagnose Pipeline Failure', action: 'Why did my build fail with vitest: not found?' },
-    { label: '☸️ Deploy Kubernetes Service', action: 'How do I create and expose a Kubernetes Service?' },
-    { label: '🐳 Troubleshoot Docker Runner', action: 'Troubleshoot Docker daemon offline connection' },
-    { label: '🔍 TypeScript Compiler Error', action: 'Diagnose TypeScript compiler error TS2322' },
-  ],
+  suggestedActions: SUGGESTED_PROMPTS.map((prompt) => ({
+    label: prompt,
+    action: prompt,
+  })),
 };
 
 const STORAGE_KEY = 'devweave_ai_chat_session_v1';
@@ -82,6 +89,7 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [providerStatus, setProviderStatus] = useState<AIProviderStatus | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Sync open state to session storage
   useEffect(() => {
@@ -135,6 +143,14 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIsOpen((prev) => !prev);
   }, []);
 
+  const stopGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+  }, []);
+
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -154,13 +170,16 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setMessages((prev) => [...prev, newMsg]);
       setIsLoading(true);
 
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       try {
         const historyForApi: AIChatMessage[] = messages
           .filter((m) => !m.isError)
           .slice(-6)
           .map((m) => ({ role: m.role, content: m.content }));
 
-        const response = await aiService.chat(trimmed, historyForApi);
+        const response = await aiService.chat(trimmed, historyForApi, controller.signal);
 
         const assistantMsg: ChatItem = {
           id: `ai-${Date.now()}`,
@@ -176,6 +195,17 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         setMessages((prev) => [...prev, assistantMsg]);
       } catch (err: any) {
+        if (err?.name === 'AbortError' || err?.message?.toLowerCase().includes('aborted')) {
+          const stoppedItem: ChatItem = {
+            id: `stopped-${Date.now()}`,
+            role: 'assistant',
+            content: `*(Response generation stopped by user)*`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          };
+          setMessages((prev) => [...prev, stoppedItem]);
+          return;
+        }
+
         const errorMsg =
           err?.response?.data?.message ||
           err?.message ||
@@ -193,6 +223,7 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setMessages((prev) => [...prev, errorItem]);
       } finally {
         setIsLoading(false);
+        abortControllerRef.current = null;
       }
     },
     [isLoading, messages]
@@ -211,6 +242,7 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [messages, sendMessage]);
 
   const clearMessages = useCallback(() => {
+    stopGeneration();
     setMessages([INITIAL_WELCOME]);
     setError(null);
     try {
@@ -218,7 +250,7 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch {
       // ignore
     }
-  }, []);
+  }, [stopGeneration]);
 
   return (
     <ChatbotContext.Provider
@@ -231,6 +263,7 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({ child
         error,
         providerStatus,
         sendMessage,
+        stopGeneration,
         clearMessages,
         retryLastMessage,
       }}
